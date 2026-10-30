@@ -1,0 +1,59 @@
+<lccdd>
+
+  <comment> Global dimensions and detector identifiers for ALFA_o1_v01 </comment>
+  <define>
+
+    <constant name="DetID_OTBar_Barrel" value="3"/>
+    <constant name="DetID_ECAL_Barrel"  value="10"/>
+    <constant name="DetID_ECAL_Endcap"  value="11"/>
+    <constant name="DetID_HCAL_Barrel"  value="12"/>
+    <constant name="DetID_HCAL_Endcap"  value="13"/>
+    <constant name="DetID_ARCBARREL"    value="20"/>
+    <constant name="DetID_ARCENDCAP"    value="21"/>
+
+    <constant name="env_safety" value="0.1*mm"/>
+
+    <constant name="tracker_region_zmax"   value="2.1*m"/>
+    <constant name="tracker_region_rmax"      value="1.8*m"/>
+
+    <constant name="OTBar_inner_radius"   value="500*mm"/>
+    <constant name="OTBar_outer_radius"   value="1800*mm"/>
+    <constant name="OTBar_nGroupingModules" value="1"/>
+
+    <constant name="ECalBarrel_inner_radius" value="2200*mm"/>
+    <constant name="ECalBarrel_outer_radius" value="2650*mm"/>
+    <constant name="ECalBarrel_half_length" value="2300*mm"/>
+
+    <comment>
+      ARC between the outer tracker (r &lt; 1800 mm, |z| &lt; 1345 mm) and the ECAL barrel (r &gt; 2200 mm).
+      Radii and lengths are the CLD_o3_v01 values: the cell optics (RadiatorCell_FinalOptimisation_o1_v01.xml)
+      are optimised for them, so changing them needs a re-optimisation, not a rescale.
+      They match the ALFA design (FCC reco workshop, 26 Oct 2026): 20 cm depth, ~27 cm hexagonal cells.
+      The endcap spans ArcEndcap_position_z +- ArcEndcap_total_length/2 = 2000-2200 mm, clear of the OT barrel
+      (|z| &lt; 1345 mm) and of the compensating solenoid (r &lt; 200 mm).
+    </comment>
+    <constant name="ArcBarrel_inner_radius"  value="1900*mm"/>
+    <constant name="ArcBarrel_outer_radius"  value="2100*mm"/>
+    <constant name="ArcBarrel_total_length"  value="4400*mm"/>
+    <constant name="ArcEndcap_inner_radius"  value="280*mm"/>
+    <constant name="ArcEndcap_outer_radius"  value="1900*mm"/>
+    <constant name="ArcEndcap_total_length"  value="200*mm"/>
+    <constant name="ArcEndcap_position_z"    value="2100*mm"/>
+
+    <comment> ARC xenon radiator working point. Baseline 2 bar: Xe matches the C4F10 index (same ring radius) at 1.98 bar,
+      so the C4F10-optimised cells apply; 1-3 bar scan foreseen (M. Defranchis, ARC pre-demonstrator, ALFA meeting 16 Oct 2026).
+      The ring moves by ~0.1 mrad/K at fixed pressure, so keep the temperature consistent. Ideal-gas scaling from 273.15 K, 1 atm. </comment>
+    <constant name="ARC_XE_PRESSURE_BAR"     value="2.0"/>
+    <constant name="ARC_XE_TEMPERATURE_K"    value="293.15"/>
+    <constant name="ARC_XE_DENSITY_FACTOR"   value="(ARC_XE_PRESSURE_BAR/1.01325)*(273.15/ARC_XE_TEMPERATURE_K)"/>
+
+    <comment> ARC mirror reflectivity (flat). 1.0 = ideal, the k4geo CLD default and the value used for T02-T06;
+      0.90 is the realistic placeholder studied in T07. </comment>
+    <constant name="ARC_MIRROR_REFLECTIVITY" value="1.0"/>
+
+    <constant name="Solenoid_coil_half_length"      value="2.0*m"/>
+    <constant name="Solenoid_coil_outer_radius"      value="2.7*m"/>
+
+  </define>
+
+</lccdd>

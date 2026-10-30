@@ -1,8 +1,8 @@
 <lccdd >
 
 <includes>
-  <gdmlFile ref="/afs/cern.ch/work/h/hfatehi/alfa/k4geo/FCCee/ALFA/compact/ALFA_o1_v01/materials_arc_o1_v01.xml"/>
-  <gdmlFile ref="/afs/cern.ch/work/h/hfatehi/alfa/k4geo/FCCee/ALFA/compact/ALFA_o1_v01/../../../CLD/compact/CLD_o3_v01/RadiatorCell_FinalOptimisation_o1_v01.xml"/>
+  <gdmlFile ref="materials_arc_o1_v01.xml"/>
+  <gdmlFile ref="../../../CLD/compact/CLD_o3_v01/RadiatorCell_FinalOptimisation_o1_v01.xml"/>
 </includes>
 
 <define>

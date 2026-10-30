@@ -12,7 +12,7 @@ Final numbers: [RESULTS.md](RESULTS.md).
 | folder | stage |
 |---|---|
 | `env/` | `nightly.sh`: runs a command in a clean shell with the key4hep nightly and the local k4geo build |
-| `01_geometry/` | k4geo patches: `ALFA_o1_v01` with the ARC barrel and endcaps (Xe 2 bar), SiPM PDE filter, ddsim steering, test; `C4F10_variant/` |
+| `01_geometry/` | k4geo patches that add `ALFA_o1_v01` with the ARC barrel and endcaps; the resulting compact files for both gases as plain XML (`ALFA_o1_v01_Xe2bar/`, main; `ALFA_o1_v01_C4F10/`, only the radiator material differs); ddsim steering; see its README |
 | `02_fullsim/` | HTCondor full simulation: `T06b` (Xe 2 bar) and `T06c` (C4F10), pi/K/p at 10 momenta, theta uniform 12-90 deg (cell-averaged); `T15` photon-truth sample; extractors to `.npz` |
 | `03_reconstruction_calibration/` | per-photon Cherenkov-angle reconstruction, per-track table in cell-sized theta bins, smooth calibration fits |
 | `04_delphes/` | Delphes patches (ARCPID module, cards, Kalman covariance fix), k4SimDelphes patches (ARC PID -> EDM4hep), cards v4 and their generator, validation, tracking check, material comparison |
@@ -38,11 +38,12 @@ N=env/nightly.sh            # every step runs in the nightly environment
 # 1. geometry
 git clone https://github.com/key4hep/k4geo && cd k4geo && git checkout -b alfa-arc ef839651 && git am ../01_geometry/k4geo-patches/*.patch
 $N "cd k4geo && mkdir build && cd build && cmake .. -DCMAKE_INSTALL_PREFIX=../install && make -j16 install && ctest -R ALFA_o1_v01"
+#    C4F10 variant: cp ../01_geometry/ALFA_o1_v01_C4F10/*.xml FCCee/ALFA/compact/ALFA_o1_v01/
 #    view it: python3 utils/dd4hep2root.py -c FCCee/ALFA/compact/ALFA_o1_v01/ALFA_o1_v01.xml -o ALFA_o1_v01.root   (ROOT TBrowser)
 
 # 2. full simulation (cell-averaged; ~10 CPU-min per job; the ROOT files are dropped after extraction to .npz)
 condor_submit 02_fullsim/T06b/t06b.sub          # Xe 2 bar
-condor_submit 02_fullsim/T06c/t06c.sub          # C4F10 (geometry 01_geometry/C4F10_variant)
+condor_submit 02_fullsim/T06c/t06c.sub          # C4F10 (geometry 01_geometry/ALFA_o1_v01_C4F10)
 
 # 3. reconstruction table + calibration (independent processes: DD4hep cannot run inside multiprocessing workers)
 cd 03_reconstruction_calibration
