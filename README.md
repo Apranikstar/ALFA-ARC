@@ -24,8 +24,9 @@ flowchart LR
 | [04_delphes](04_delphes) | a fast simulation that reproduces the full one (within 2-5%) | [README](04_delphes/README.md) |
 | [05_flavour_tagging](05_flavour_tagging) | how much better b / c / s / g jets are tagged with the ARC | [README](05_flavour_tagging/README.md) |
 
-**Results: [RESULTS.md](RESULTS.md).** Status: being updated to aerogel n = 1.030 (the whole chain is rerun) and extended
-with a flavour-tagging comparison to the IDEA detector; the numbers in RESULTS.md are for aerogel n = 1.019 until then.
+**Results: [RESULTS.md](RESULTS.md).** Status: the ARC is now described by the ray-tracing module ARCFastSim (04_delphes),
+validated against the full simulation on three configurations (aerogel n = 1.019, 1.030, larger SiPM arrays) and both gases; the
+flavour-tagging comparison with IDEA is being redone with it. The numbers in RESULTS.md are for aerogel n = 1.019 until then.
 
 ## Quick start
 
