@@ -1,0 +1,1975 @@
+From 46c9208d83449d13b75fe355bf8ad46bdcd9d66e Mon Sep 17 00:00:00 2001
+From: hfatehi <trialoftheniku@gmail.com>
+Date: Thu, 29 Oct 2026 20:34:27 +0100
+Subject: [PATCH 01/12] ALFA: ARCPID module, ALFA card, gun configs and
+ validation script (bundle alfa_delphes_arcpid.tar.gz, v4)
+
+Applied unchanged from alfa_arcpid.patch on master b0465ee.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01KP5vqAGH2XiGXWtPhaonke
+---
+ cards/delphes_card_ALFA.tcl     | 952 ++++++++++++++++++++++++++++++++
+ classes/DelphesClasses.cc       |  48 ++
+ classes/DelphesClasses.h        |  40 +-
+ examples/ALFA/README.md         |  66 +++
+ examples/ALFA/arc_separation.py | 147 +++++
+ examples/ALFA/gun_kp.cmnd       |  14 +
+ examples/ALFA/gun_p.cmnd        |  14 +
+ examples/ALFA/gun_pip.cmnd      |  14 +
+ modules/ARCPID.cc               | 344 ++++++++++++
+ modules/ARCPID.h                | 125 +++++
+ modules/ModulesLinkDef.h        |   2 +
+ modules/TreeWriter.cc           |  32 ++
+ 12 files changed, 1796 insertions(+), 2 deletions(-)
+ create mode 100644 cards/delphes_card_ALFA.tcl
+ create mode 100644 examples/ALFA/README.md
+ create mode 100644 examples/ALFA/arc_separation.py
+ create mode 100644 examples/ALFA/gun_kp.cmnd
+ create mode 100644 examples/ALFA/gun_p.cmnd
+ create mode 100644 examples/ALFA/gun_pip.cmnd
+ create mode 100644 modules/ARCPID.cc
+ create mode 100644 modules/ARCPID.h
+
+diff --git a/cards/delphes_card_ALFA.tcl b/cards/delphes_card_ALFA.tcl
+new file mode 100644
+index 0000000..e06ee9d
+--- /dev/null
++++ b/cards/delphes_card_ALFA.tcl
+@@ -0,0 +1,952 @@
++set RandomSeed 123
++
++#####################################################################
++# FCC-ee ALFA detector model  (ALFA_o1_v01-like, with ARC PID)
++#
++# Derived from the IDEA card. Tracker, ARC and ECAL numbers follow the
++# ALFA full simulation in k4geo (FCCee/ALFA/compact/ALFA_o1_v01) and the
++# ALFA talks of Oct 2026 (Reco workshop 26 Oct, ARC pre-demonstrator 16 Oct).
++#
++#   tracker : all-MAPS. 5-layer vertex (r = 1.3-3.3 cm, 140 mrad acceptance,
++#             3 um), 4 double-layer barrel stations (r = 0.77-1.77 m, 3 um,
++#             0.2% X0 per plane), 4 double disks per side (|z| = 1.39-2.02 m)
++#   ARC     : barrel r = 1.90-2.10 m, endcaps |z| = 2.00-2.20 m, Xe 2 bar +
++#             1 cm aerogel; 5.8% X0 passive material in the track fit
++#   ECAL    : GRAiNITA, 1.7%/sqrt(E) (+) 1.1%, 0.2 mrad angular at high E
++#   HCAL    : SiPM-on-tile in the yoke; resolution is a PLACEHOLDER
++#   B field : 3 T
++#
++# ARC parameters (ARCPID module) are the first-pass values of the ARCPID
++# study (Daniels et al., Jul 2026) and are to be replaced by the k4geo
++# full-sim calibration (tasks T05/T06 on the ALFA ARC task board).
++#####################################################################
++
++set B 3.0
++## inner radius / half length of the ECAL = where track propagation stops [m]
++set R 2.20
++set HL 2.30
++
++## ARC envelope [m], as in k4geo ALFA_o1_v01
++set ARCBRMIN 1.90
++set ARCBRMAX 2.10
++set ARCBZMAX 2.20
++set ARCEZMIN 2.00
++set ARCEZMAX 2.20
++set ARCERMIN 0.28
++set ARCERMAX 1.90
++
++
++#######################################
++# Order of execution of various modules
++#######################################
++
++set ExecutionPath {
++
++  BeamSpotSmearing
++
++  TruthVertexFinder
++  ParticlePropagator
++
++  ChargedHadronTrackingEfficiency
++  ElectronTrackingEfficiency
++  MuonTrackingEfficiency
++
++  TrackMergerPre
++  TrackSmearing
++  ARCPID
++
++  TrackMerger
++  ForwardLooperTracks
++  Calorimeter
++
++  TimeSmearingNeutrals
++  TimeOfFlightNeutralHadron
++
++  EFlowTrackMerger
++  EFlowMerger
++
++  PhotonEfficiency
++  PhotonIsolation
++
++  MuonFilter
++  TowerMerger
++
++  ElectronFilter
++  ElectronEfficiency
++  ElectronIsolation
++
++  MuonEfficiency
++  MuonIsolation
++
++  MissingET
++
++  NeutrinoFilter
++  GenJetFinder
++  GenMissingET
++
++  FastJetFinder
++  JetEnergyScale
++
++  GenJetFinderDurhamN2
++  FastJetFinderDurhamN2
++
++  JetFlavorAssociation
++
++  BTagging
++  CTagging
++  TauTagging
++
++  TreeWriter
++}
++
++#################################
++# Beam spot smearing
++#################################
++
++module BeamSpotSmearing BeamSpotSmearing {
++
++  set InputArray Delphes/allParticles
++
++  # beam spot size in x, y, z [m] and bunch time spread [s]
++  # FCC-ee Z pole example: 5.96E-06, 23.8E-09, 0.397E-03, 36.3E-12
++  set SigmaX 0.0
++  set SigmaY 0.0
++  set SigmaZ 0.0
++  set SigmaT 0.0
++}
++
++
++#################################
++# Truth Vertex Finder
++#################################
++
++module TruthVertexFinder TruthVertexFinder {
++
++  ## below this distance two vertices are assumed to be merged
++  set Resolution 1E-06
++
++  set InputArray Delphes/stableParticles
++  set VertexOutputArray vertices
++}
++
++
++#################################
++# Propagate particles in cylinder
++#################################
++
++module ParticlePropagator ParticlePropagator {
++  set InputArray Delphes/stableParticles
++
++  set OutputArray stableParticles
++  set ChargedHadronOutputArray chargedHadrons
++  set ElectronOutputArray electrons
++  set MuonOutputArray muons
++
++  # inner radius of the solenoid, in m
++  set Radius $::R
++
++  # half-length: z of the solenoid, in m
++  set HalfLength $::HL
++
++  # magnetic field, in T
++  set Bz $::B
++}
++
++####################################
++# Charged hadron tracking efficiency
++####################################
++
++module Efficiency ChargedHadronTrackingEfficiency {
++    set InputArray ParticlePropagator/chargedHadrons
++    set OutputArray chargedHadrons
++    set UseMomentumVector true
++
++    set EfficiencyFormula {
++        (abs(eta) > 2.6)                                  * (0.000) +
++        (pt < 0.1) * (abs(eta) <= 2.6)       * (0.000) +
++        (pt >= 0.1) * (abs(eta) <= 2.6)      * (1.000)
++    }
++}
++
++
++
++##############################
++# Electron tracking efficiency
++##############################
++
++module Efficiency ElectronTrackingEfficiency {
++    set InputArray ParticlePropagator/electrons
++    set OutputArray electrons
++    set UseMomentumVector true
++
++    set EfficiencyFormula {
++        (abs(eta) > 2.6)                                  * (0.000) +
++        (pt < 0.1) * (abs(eta) <= 2.6)                    * (0.000) +
++        (pt >= 0.1) * (abs(eta) <= 2.6)                   * (1.000)
++    }
++}
++
++
++##########################
++# Muon tracking efficiency
++##########################
++
++module Efficiency MuonTrackingEfficiency {
++    set InputArray ParticlePropagator/muons
++    set OutputArray muons
++    set UseMomentumVector true
++
++    set EfficiencyFormula {
++        (abs(eta) > 2.6)                                  * (0.000) +
++        (pt < 0.1) * (abs(eta) <= 2.6)       * (0.000) +
++        (pt >= 0.1) * (abs(eta) <= 2.6)      * (1.000)
++    }
++}
++
++##############
++# Track merger
++##############
++
++module Merger TrackMergerPre {
++# add InputArray InputArray
++  add InputArray ChargedHadronTrackingEfficiency/chargedHadrons
++  add InputArray ElectronTrackingEfficiency/electrons
++  add InputArray MuonTrackingEfficiency/muons
++  set OutputArray tracks
++}
++
++
++
++########################################
++# Smearing for charged tracks
++########################################
++
++module TrackCovariance TrackSmearing {
++
++    set InputArray TrackMergerPre/tracks
++    set OutputArray tracks
++
++    ## minimum number of hits to accept a track
++    set NMinHits 6
++
++    ## magnetic field
++    set Bz $::B
++
++    ## scale factors
++    set ElectronScaleFactor  {1.25}
++
++
++    set DetectorGeometry {
++
++      # Layer type 1 = R (barrel) or 2 = z (forward/backward)
++      # Layer label
++      # Minimum dimension z for barrel or R for forward
++      # Maximum dimension z for barrel or R for forward
++      # R/z location of layer
++      # Thickness (meters)
++      # Radiation length (meters)
++      # Number of measurements in layers (1D or 2D)
++      # Stereo angle (rad) - 0(pi/2) = axial(z) layer - Upper side
++      # Stereo angle (rad) - 0(pi/2) = axial(z) layer - Lower side
++      # Resolution Upper side (meters) - 0 = no measurement
++      # Resolution Lower side (meters) - 0 = no measurement
++      # measurement flag = T, scattering only = F
++
++      # barrel  name       zmin   zmax   r        w (m)      X0        n_meas  th_up (rad) th_down (rad)    reso_up (m)   reso_down (m)  flag
++
++      # beam pipe (AlBeMet + paraffin + Au, 0.68% X0 at 90 deg as in k4geo)
++      1 PIPE -100 100 0.01 0.00241 0.35276 0 0 0 0 0 0
++      # vertex detector: 5 curved MAPS layers, 10 um pixels, 140 mrad acceptance, ~0.05% X0 per layer
++      1 VTX -0.092 0.092 0.013 5e-05 0.0937 2 0 1.5708 3e-06 3e-06 1
++      1 VTX -0.128 0.128 0.018 5e-05 0.0937 2 0 1.5708 3e-06 3e-06 1
++      1 VTX -0.163 0.163 0.023 5e-05 0.0937 2 0 1.5708 3e-06 3e-06 1
++      1 VTX -0.199 0.199 0.028 5e-05 0.0937 2 0 1.5708 3e-06 3e-06 1
++      1 VTX -0.234 0.234 0.033 5e-05 0.0937 2 0 1.5708 3e-06 3e-06 1
++      # outer tracker barrel: 4 stations, each two MAPS planes on the faces of a 5 cm foam stave (k4geo OuterTrackerBarrel_o1_v00)
++      1 OTB -1.345 1.345 0.767 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
++      1 OTB -1.345 1.345 0.82 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
++      1 OTB -1.345 1.345 0.893 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
++      1 OTB -1.345 1.345 0.946 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
++      1 OTB -1.345 1.345 1.587 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
++      1 OTB -1.345 1.345 1.64 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
++      1 OTB -1.345 1.345 1.714 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
++      1 OTB -1.345 1.345 1.767 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
++      # ARC barrel as passive material: 20 cm, 5.8% X0 at 90 deg (k4geo T04 material scan)
++      1 ARCB -2.2 2.2 2 0.2 3.45 0 0 0 0 0 0
++      # outer tracker endcaps: 4 double disks per side (ALFA Delphes card, Jul 2026; engineering design in progress)
++      2 OTE 0.15 1.78 -2.045 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
++      2 OTE 0.15 1.78 -1.995 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
++      2 OTE 0.15 1.78 -1.835 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
++      2 OTE 0.15 1.78 -1.785 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
++      2 OTE 0.15 1.78 -1.625 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
++      2 OTE 0.15 1.78 -1.575 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
++      2 OTE 0.15 1.78 -1.415 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
++      2 OTE 0.15 1.78 -1.365 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
++      2 OTE 0.15 1.78 1.365 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
++      2 OTE 0.15 1.78 1.415 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
++      2 OTE 0.15 1.78 1.575 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
++      2 OTE 0.15 1.78 1.625 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
++      2 OTE 0.15 1.78 1.785 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
++      2 OTE 0.15 1.78 1.835 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
++      2 OTE 0.15 1.78 1.995 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
++      2 OTE 0.15 1.78 2.045 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
++      # ARC endcaps as passive material
++      2 ARCE 0.28 1.9 -2.1 0.2 3.45 0 0 0 0 0 0
++      2 ARCE 0.28 1.9 2.1 0.2 3.45 0 0 0 0 0 0
++
++    }
++
++}
++
++#########################################
++# ARC: Array of RICH Cells, per-track PID
++#########################################
++
++module ARCPID ARCPID {
++  set InputArray TrackSmearing/tracks
++  set OutputArray tracks
++
++  set Bz $::B
++
++  ## ARC envelope [m]
++  set BarrelRmin $::ARCBRMIN
++  set BarrelRmax $::ARCBRMAX
++  set BarrelZmax $::ARCBZMAX
++  set EndcapZmin $::ARCEZMIN
++  set EndcapZmax $::ARCEZMAX
++  set EndcapRmin $::ARCERMIN
++  set EndcapRmax $::ARCERMAX
++
++  ## gas radiator: xenon at 2 bar, 293.15 K. Numbers from the k4geo full simulation (standalone ARC cell, per-photon
++  ## reconstruction, lxplus 29 Oct 2026): n and dn/dE at the PDE-weighted mean detected photon energy <E> = 3.02 eV,
++  ## sigma_E = rms of the detected spectrum. Thresholds pi/K/p = 2.71 / 9.59 / 18.2 GeV follow from n.
++  set GasRefractiveIndex 1.00132
++  set GasDnDe 6.17E-5
++  set GasSigmaE 0.676
++  ## non-chromatic per-photon resolution [rad] = sqrt(sigma1^2 - chromatic^2) with sigma1 = 2.4 mrad measured, chromatic 0.81 mrad
++  set GasSigmaSingle 2.25E-3
++  ## photo-electrons at beta = 1 for a path GasLref: placeholder (ARCPID Jul 2026), task T12 replaces it
++  set GasNsat 14.0
++  set GasLref 0.15
++  ## metres of gas crossed at normal incidence (T12 measures the real path through the cells)
++  set GasThickness 0.15
++
++  ## aerogel radiator (k4geo Aerogel_PFRICH as used in the full sim; design value n = 1.03 is being reconciled with the group)
++  set AerogelRefractiveIndex 1.0193
++  # set AerogelRefractiveIndex 1.03   ;# design value
++  ## aerogel is strongly dispersive: chromatic term ~2.6 mrad dominates; sigma1 measured 3.4-3.8 mrad
++  set AerogelDnDe 7.9E-4
++  set AerogelSigmaE 0.676
++  set AerogelSigmaSingle 2.4E-3
++  set AerogelNsat 7.0
++  set AerogelLref 0.01
++  set AerogelThickness 0.01
++
++  ## Per-photon error from the track curving inside the radiator (3 T, 15 cm gas: ~4 mrad at 10 GeV, seen in full ALFA):
++  ## sigma_bend = BendingCoefficient * 0.3 * B * L * sin(theta) / p, with 1/sqrt(12) = 0.2887 for uniform emission; 0 switches it off
++  set BendingCoefficient 0.2887
++
++  ## a ring needs at least MinPe expected photo-electrons
++  set MinPe 3.0
++  ## tracking contribution to the angle, added in quadrature [rad]
++  set SigmaTrack 0.0
++  ## fluctuate the yield per track (false reproduces the ARCPID study)
++  set PoissonFluctuation false
++  ## evaluate the pi/K/p hypotheses at the true momentum instead of the smeared one
++  set UseTrueMomentumForPID false
++
++  ## ring-finding efficiency vs (pt, eta); 1.0 = geometric acceptance only.
++  ## To be filled from full sim (task T06): barrel-endcap crack at |cos theta| ~ 0.73, ring-off-sensor losses.
++  set GasEfficiencyFormula { 1.0 }
++  set AerogelEfficiencyFormula { 1.0 }
++}
++
++##############
++# Track merger
++##############
++
++module Merger TrackMerger {
++# add InputArray InputArray
++  add InputArray ARCPID/tracks
++  set OutputArray tracks
++}
++
++
++######################
++# Looper Selection
++######################
++
++module Efficiency ForwardLooperTracks  {
++  set InputArray TrackMerger/tracks
++  set OutputArray tracks
++  set UseMomentumVector false
++
++  ## select looping tracks that end up in position |eta| > 3.142 (lost by calo)
++  set EfficiencyFormula {
++    (abs(eta) > 3.0 )                                 * (1.000) +
++    (abs(eta) <= 3.0 )                                * (0.000)
++  }
++
++}
++
++
++#############
++# Calorimeter
++#############
++module DualReadoutCalorimeter Calorimeter {
++    set ParticleInputArray ParticlePropagator/stableParticles
++    set TrackInputArray TrackMerger/tracks
++
++    set TowerOutputArray towers
++    set PhotonOutputArray photons
++
++    set EFlowTrackOutputArray eflowTracks
++    set EFlowPhotonOutputArray eflowPhotons
++    set EFlowNeutralHadronOutputArray eflowNeutralHadrons
++
++    set ECalMinSignificance 2.0
++    set HCalMinSignificance 2.5
++
++    set SmearLogNormal false
++
++    set SmearTowerCenter true
++    #set SmearTowerCenter false
++
++    ## GRAiNITA barrel photon angular resolution, CLUE clustering (ALFA Reco workshop 26 Oct 2026): a = 0.80, b = 0.55, c = 0.145 mrad; endcap assumed equal
++    set PhotonAngularSmearing true
++
++    set PhotonThetaResolutionFormula {
++      (abs(eta) <= 0.92)                   * sqrt(0.80^2/energy + 0.55^2/energy^2 + 0.145^2)*1E-3 +
++      (abs(eta) > 0.92 && abs(eta) <= 3.0) * sqrt(0.80^2/energy + 0.55^2/energy^2 + 0.145^2)*1E-3
++    }
++
++    set PhotonPhiResolutionFormula {
++      (abs(eta) <= 0.92)                   * sqrt(0.80^2/energy + 0.55^2/energy^2 + 0.145^2)*1E-3 +
++      (abs(eta) > 0.92 && abs(eta) <= 3.0) * sqrt(0.80^2/energy + 0.55^2/energy^2 + 0.145^2)*1E-3
++    }
++
++    set PhotonPointing true
++
++    set PointingThetaResolutionFormula { (abs(eta) <= 3.0) * sqrt(111.9^2/energy + 21.0^2)*1E-3 }
++    set PointingPhiResolutionFormula   { (abs(eta) <= 3.0) * sqrt(139.4^2/energy + 23.8^2)*1E-3 }
++
++    ## alternative optimistic pointing BDT-corrected
++    # set PointingThetaResolutionFormula { (abs(eta) <= 3.0) * sqrt(51.76^2/energy + 11.67^2)*1E-3 }
++    # set PointingPhiResolutionFormula   { (abs(eta) <= 3.0) * sqrt(75.76^2/energy + 73.66^2/energy^2 + 16.73^2)*1E-3 }
++    set pi [expr {acos(-1)}]
++
++    # Lists of the edges of each tower in eta and phi;
++    # each list starts with the lower edge of the first tower;
++    # the list ends with the higher edged of the last tower.
++    # Barrel:  deta=0.02 towers up to |eta| <= 0.88 ( up to 45°)
++    # Endcaps: deta=0.02 towers up to |eta| <= 3.0 (8.6° = 100 mrad)
++    # Cell size: about 6 cm x 6 cm
++
++    set EtaPhiRes 0.02
++    set EtaMax 3.0
++
++    set pi [expr {acos(-1)}]
++
++    set PhiBins [expr {int($pi/$EtaPhiRes) * 2}]
++
++    set nbins_eta [expr {$EtaMax/$EtaPhiRes} ]
++    set nbins_eta [expr {int($nbins_eta)} ]
++
++    for {set i -$nbins_eta} {$i <= $nbins_eta} {incr i} {
++      set eta [expr {$i * $EtaPhiRes}]
++      add EtaPhiBins $eta $PhiBins
++    }
++
++    # default energy fractions {abs(PDG code)} {Fecal Fhcal}
++    add EnergyFraction {0} {0.0 1.0}
++    # energy fractions for e, gamma and pi0
++    add EnergyFraction {11} {1.0 0.0}
++    add EnergyFraction {22} {1.0 0.0}
++    add EnergyFraction {111} {1.0 0.0}
++    # energy fractions for muon, neutrinos and neutralinos
++    add EnergyFraction {12} {0.0 0.0}
++    add EnergyFraction {13} {0.0 0.0}
++    add EnergyFraction {14} {0.0 0.0}
++    add EnergyFraction {16} {0.0 0.0}
++    add EnergyFraction {1000022} {0.0 0.0}
++    add EnergyFraction {1000023} {0.0 0.0}
++    add EnergyFraction {1000025} {0.0 0.0}
++    add EnergyFraction {1000035} {0.0 0.0}
++    add EnergyFraction {1000045} {0.0 0.0}
++    # energy fractions for K0short and Lambda
++    add EnergyFraction {310} {0.3 0.7}
++    add EnergyFraction {130} {0.3 0.7}
++    add EnergyFraction {3122} {0.3 0.7}
++
++
++    ## GRAiNITA ECAL: sigma_E/E = 1.7%/sqrt(E) (+) 1.1% at reconstruction level with CLUE (ALFA Reco workshop 26 Oct 2026).
++    ## Endcap assumed identical (no endcap design yet).
++    set ECalResolutionFormula {
++    (abs(eta) <= 0.92 )                     * sqrt(energy^2*0.011^2 + energy*0.017^2 + 0.002^2)+
++    (abs(eta) > 0.92 && abs(eta) <= 3.0)    * sqrt(energy^2*0.011^2 + energy*0.017^2 + 0.002^2)
++    }
++
++
++    ## HCAL: SiPM-on-tile scintillator in the instrumented yoke (HGCAL CE-H like).
++    ## PLACEHOLDER: 45%/sqrt(E) (+) 3% (CALICE AHCAL-like) until the standalone Geant4 study provides numbers.
++    set HCalResolutionFormula {
++    (abs(eta) <= 0.92 )                     * sqrt(energy^2*0.03^2 + energy*0.45^2 + 0.05^2)+
++    (abs(eta) > 0.92 && abs(eta) <= 3.0)    * sqrt(energy^2*0.03^2 + energy*0.45^2 + 0.05^2)
++    }
++}
++
++########################################
++#   Time Smearing Neutrals
++########################################
++
++module TimeSmearing TimeSmearingNeutrals {
++  set InputArray Calorimeter/eflowNeutralHadrons
++  set OutputArray eflowNeutralHadrons
++
++  # assume constant 30 ps resolution for now
++  set TimeResolution {
++                       (abs(eta) > 0.0 && abs(eta) <= 3.0)* 30E-12
++                     }
++}
++
++########################################
++#   Time Of Flight Measurement
++########################################
++
++module TimeOfFlight TimeOfFlightNeutralHadron {
++  set InputArray TimeSmearingNeutrals/eflowNeutralHadrons
++  set VertexInputArray TruthVertexFinder/vertices
++
++  set OutputArray eflowNeutralHadrons
++
++  # 0: assume vertex time tV from MC Truth (ideal case)
++  # 1: assume vertex time tV = 0
++  # 2: calculate vertex time as vertex TOF, assuming tPV=0
++
++  ## TBF (add option to take hard vertex time)
++  set VertexTimeMode 1
++}
++
++
++############################
++# Energy flow track merger
++############################
++
++module Merger EFlowTrackMerger {
++# add InputArray InputArray
++  add InputArray Calorimeter/eflowTracks
++  add InputArray ForwardLooperTracks/tracks
++  set OutputArray eflowTracks
++}
++
++
++
++####################
++# Energy flow merger
++####################
++
++module Merger EFlowMerger {
++# add InputArray InputArray
++  add InputArray EFlowTrackMerger/eflowTracks
++  add InputArray Calorimeter/eflowPhotons
++  add InputArray TimeOfFlightNeutralHadron/eflowNeutralHadrons
++  set OutputArray eflow
++}
++
++
++####################
++# Tower merger
++####################
++
++module Merger TowerMerger {
++# add InputArray InputArray
++  add InputArray Calorimeter/towers
++  add InputArray MuonFilter/muons
++  set OutputArray towers
++}
++
++
++###################
++# Photon efficiency
++###################
++
++module Efficiency PhotonEfficiency {
++  set InputArray Calorimeter/eflowPhotons
++  set OutputArray photons
++
++  # set EfficiencyFormula {efficiency formula as a function of eta and pt}
++  # efficiency formula for photons
++  set EfficiencyFormula {
++        (energy < 2.0)                                        * (0.000)+
++        (energy >= 2.0) * (abs(eta) <= 0.92)                  * (0.99) +
++        (energy >= 2.0) * (abs(eta) >0.88 && abs(eta) <= 3.0) * (0.99) +
++        (abs(eta) > 3.0)                                      * (0.000)
++  }
++}
++
++##################
++# Photon isolation
++##################
++
++module Isolation PhotonIsolation {
++  set CandidateInputArray PhotonEfficiency/photons
++  set IsolationInputArray EFlowMerger/eflow
++
++  set OutputArray photons
++
++  set DeltaRMax 0.5
++
++  set PTMin 0.5
++
++  set PTRatioMax 9999.
++}
++
++#################
++# Electron filter
++#################
++
++module PdgCodeFilter ElectronFilter {
++  set InputArray EFlowTrackMerger/eflowTracks
++  set OutputArray electrons
++  set Invert true
++  add PdgCode {11}
++  add PdgCode {-11}
++}
++
++#################
++# Muon filter
++#################
++
++module PdgCodeFilter MuonFilter {
++  set InputArray EFlowTrackMerger/eflowTracks
++  set OutputArray muons
++  set Invert true
++  add PdgCode {13}
++  add PdgCode {-13}
++}
++
++
++#####################
++# Electron efficiency
++#####################
++
++module Efficiency ElectronEfficiency {
++  set InputArray ElectronFilter/electrons
++  set OutputArray electrons
++
++  # set EfficiencyFormula {efficiency formula as a function of eta and pt}
++
++  # efficiency formula for electrons
++  set EfficiencyFormula {
++        (energy < 2.0)                                         * (0.000)+
++        (energy >= 2.0) * (abs(eta) <= 0.92)                   * (0.99) +
++        (energy >= 2.0) * (abs(eta) >0.88 && abs(eta) <= 3.0)  * (0.99) +
++        (abs(eta) > 3.0)                                       * (0.000)
++  }
++}
++
++####################
++# Electron isolation
++####################
++
++module Isolation ElectronIsolation {
++  set CandidateInputArray ElectronEfficiency/electrons
++  set IsolationInputArray EFlowMerger/eflow
++
++  set OutputArray electrons
++
++  set DeltaRMax 0.5
++
++  set PTMin 0.5
++
++  set PTRatioMax 9999
++}
++
++#################
++# Muon efficiency
++#################
++
++module Efficiency MuonEfficiency {
++  set InputArray MuonFilter/muons
++  set OutputArray muons
++
++  # set EfficiencyFormula {efficiency as a function of eta and pt}
++
++  # efficiency formula for muons
++  set EfficiencyFormula {
++        (energy < 2.0)                                         * (0.000)+
++        (energy >= 2.0) * (abs(eta) <= 0.92)                   * (0.99) +
++        (energy >= 2.0) * (abs(eta) >0.88 && abs(eta) <= 3.0)  * (0.99) +
++        (abs(eta) > 3.0)                                       * (0.000)
++  }
++}
++
++################
++# Muon isolation
++################
++
++module Isolation MuonIsolation {
++  set CandidateInputArray MuonEfficiency/muons
++  set IsolationInputArray EFlowMerger/eflow
++
++  set OutputArray muons
++
++  set DeltaRMax 0.5
++
++  set PTMin 0.5
++
++  set PTRatioMax 9999.
++}
++
++###################
++# Missing ET merger
++###################
++
++module Merger MissingET {
++# add InputArray InputArray
++  add InputArray EFlowMerger/eflow
++  set MomentumOutputArray momentum
++}
++
++
++#####################
++# Neutrino Filter
++#####################
++
++module PdgCodeFilter NeutrinoFilter {
++
++  set InputArray Delphes/stableParticles
++  set OutputArray filteredParticles
++
++  set PTMin 0.0
++
++  add PdgCode {12}
++  add PdgCode {14}
++  add PdgCode {16}
++  add PdgCode {-12}
++  add PdgCode {-14}
++  add PdgCode {-16}
++}
++
++###################################
++# Gen Jet finder Durham exclusive
++###################################
++
++module FastJetFinder GenJetFinderDurhamN2 {
++
++  set InputArray NeutrinoFilter/filteredParticles
++  set OutputArray jets
++
++  # algorithm: 11 ee-durham kT algorithm
++  # ref: https://indico.cern.ch/event/1173562/contributions/4929025/attachments/2470068/4237859/2022-06-FCC-jets.pdf
++  # to run exclusive njet mode set NJets to int
++  # to run exclusive dcut mode set DCut to float
++  # if DCut > 0 will run in dcut mode
++
++  set JetAlgorithm 11
++  set ExclusiveClustering true
++  set NJets 2
++  # set DCut 10.0
++}
++
++################################
++# Jet finder Durham exclusive
++################################
++
++module FastJetFinder FastJetFinderDurhamN2 {
++#  set InputArray Calorimeter/towers
++  set InputArray EFlowMerger/eflow
++
++  set OutputArray jets
++
++  # algorithm: 11 ee-durham kT algorithm
++  # ref: https://indico.cern.ch/event/1173562/contributions/4929025/attachments/2470068/4237859/2022-06-FCC-jets.pdf
++  # to run exclusive njet mode set NJets to int
++  # to run exclusive dcut mode set DCut to float
++  # if DCut > 0 will run in dcut mode
++
++  set JetAlgorithm 11
++  set ExclusiveClustering true
++  set NJets 2
++  # set DCut 10.0
++
++}
++
++
++
++
++#####################
++# MC truth jet finder
++#####################
++
++module FastJetFinder GenJetFinder {
++  set InputArray NeutrinoFilter/filteredParticles
++  set OutputArray jets
++
++  set JetAlgorithm 10
++  set ParameterR 1.5
++  set ParameterP -1.0
++  set JetPTMin 1.0
++
++}
++
++
++#########################
++# Gen Missing ET merger
++########################
++
++module Merger GenMissingET {
++# add InputArray InputArray
++  add InputArray NeutrinoFilter/filteredParticles
++  set MomentumOutputArray momentum
++}
++
++############
++# Jet finder
++############
++
++module FastJetFinder FastJetFinder {
++#  set InputArray Calorimeter/towers
++  set InputArray EFlowMerger/eflow
++
++  set OutputArray jets
++
++  # algorithm: 1 CDFJetClu, 2 MidPoint, 3 SIScone, 4 kt, 5 Cambridge/Aachen, 6 antikt
++  set JetAlgorithm 10
++  set ParameterR 1.5
++  set ParameterP -1.0
++  set JetPTMin 1.0
++
++
++}
++
++##################
++# Jet Energy Scale
++##################
++
++module EnergyScale JetEnergyScale {
++  set InputArray FastJetFinder/jets
++  set OutputArray jets
++
++  # scale formula for jets
++  set ScaleFormula {1.00}
++}
++
++########################
++# Jet Flavor Association
++########################
++
++module JetFlavorAssociation JetFlavorAssociation {
++
++  set PartonInputArray Delphes/partons
++  set ParticleInputArray Delphes/allParticles
++  set ParticleLHEFInputArray Delphes/allParticlesLHEF
++  set JetInputArray JetEnergyScale/jets
++
++  set DeltaR 0.5
++  set PartonPTMin 1.0
++  set PartonEtaMax 3.0
++}
++
++###########
++# b-tagging
++###########
++
++module BTagging BTagging {
++  set JetInputArray JetEnergyScale/jets
++
++  set BitNumber 0
++
++  # add EfficiencyFormula {abs(PDG code)} {efficiency formula as a function of eta and pt}
++
++  # default efficiency formula (misidentification rate)
++  add EfficiencyFormula {0} {0.005}
++
++  # efficiency formula for c-jets (misidentification rate)
++  add EfficiencyFormula {4} {0.01}
++
++  # efficiency formula for b-jets
++  add EfficiencyFormula {5} {0.85}
++}
++
++###########
++# c-tagging
++###########
++
++module BTagging CTagging {
++  set JetInputArray JetEnergyScale/jets
++
++  set BitNumber 1
++
++  # add EfficiencyFormula {abs(PDG code)} {efficiency formula as a function of eta and pt}
++
++  # default efficiency formula (misidentification rate)
++  add EfficiencyFormula {0} {0.01}
++
++  # efficiency formula for c-jets (misidentification rate)
++  add EfficiencyFormula {5} {0.05}
++
++  # efficiency formula for b-jets
++  add EfficiencyFormula {4} {0.80}
++}
++
++
++#############
++# tau-tagging
++#############
++
++module TauTagging TauTagging {
++  set ParticleInputArray Delphes/allParticles
++  set PartonInputArray Delphes/partons
++  set JetInputArray JetEnergyScale/jets
++
++  set DeltaR 0.5
++  set TauPTMin 1.0
++  set TauEtaMax 3.0
++
++  # default efficiency formula (misidentification rate)
++  add EfficiencyFormula {0} {0.01}
++  # efficiency formula for tau-jets
++  add EfficiencyFormula {15} {0.85}
++}
++
++
++
++##################
++# ROOT tree writer
++##################
++
++# Tracks, towers and eflow objects are not stored by default in the output.
++# If needed (for jet constituent or other studies), uncomment the relevant
++# "add Branch ..." lines.
++
++module TreeWriter TreeWriter {
++    # add Branch InputArray BranchName BranchClass
++
++    add Branch Delphes/allParticles Particle GenParticle
++    add Branch TruthVertexFinder/vertices GenVertex Vertex
++
++    add Branch EFlowTrackMerger/eflowTracks EFlowTrack Track
++    add Branch TrackSmearing/tracks Track Track
++    add Branch Calorimeter/eflowPhotons EFlowPhoton Tower
++    add Branch TimeOfFlightNeutralHadron/eflowNeutralHadrons EFlowNeutralHadron Tower
++
++    add Branch EFlowMerger/eflow ParticleFlowCandidate ParticleFlowCandidate
++    add Branch Calorimeter/towers Tower Tower
++
++    add Branch ElectronEfficiency/electrons Electron Electron
++    add Branch MuonEfficiency/muons Muon Muon
++    add Branch PhotonEfficiency/photons Photon Photon
++
++    add Branch JetEnergyScale/jets Jet Jet
++    add Branch MissingET/momentum MissingET MissingET
++
++    add Branch GenJetFinder/jets GenJet Jet
++    add Branch GenMissingET/momentum GenMissingET MissingET
++
++    add Branch GenJetFinderDurhamN2/jets GenJetDurhamN2 Jet
++    add Branch FastJetFinderDurhamN2/jets JetDurhamN2 Jet
++
++    # add Info InfoName InfoValue
++    add Info Bz $::B
++}
+diff --git a/classes/DelphesClasses.cc b/classes/DelphesClasses.cc
+index 1b6a508..9ad0498 100644
+--- a/classes/DelphesClasses.cc
++++ b/classes/DelphesClasses.cc
+@@ -231,6 +231,22 @@ Candidate::Candidate() :
+   Phi(0), ErrorPhi(0),
+   Nclusters(0.0),
+   dNdx(0.0),
++  CherenkovAngleGas(-1.0),
++  CherenkovAngleAerogel(-1.0),
++  CherenkovRecoAngleGas(-1.0),
++  CherenkovRecoAngleAerogel(-1.0),
++  SigmaThetaCGas(-1.0),
++  SigmaThetaCAerogel(-1.0),
++  NpeGas(0.0),
++  NpeAerogel(0.0),
++  ARCchi2Pi(-1.0),
++  ARCchi2K(-1.0),
++  ARCchi2P(-1.0),
++  ARCpid(0),
++  ARCprobPi(-1.0),
++  ARCprobK(-1.0),
++  ARCprobP(-1.0),
++  ARCmass(-1.0),
+   Xd(0), Yd(0), Zd(0),
+   XFirstHit(0), YFirstHit(0), ZFirstHit(0),
+   TrackResolution(0),
+@@ -420,6 +436,22 @@ void Candidate::Copy(TObject &obj) const
+   object.ZFirstHit = ZFirstHit;
+   object.Nclusters = Nclusters;
+   object.dNdx = dNdx;
++  object.CherenkovAngleGas = CherenkovAngleGas;
++  object.CherenkovAngleAerogel = CherenkovAngleAerogel;
++  object.CherenkovRecoAngleGas = CherenkovRecoAngleGas;
++  object.CherenkovRecoAngleAerogel = CherenkovRecoAngleAerogel;
++  object.SigmaThetaCGas = SigmaThetaCGas;
++  object.SigmaThetaCAerogel = SigmaThetaCAerogel;
++  object.NpeGas = NpeGas;
++  object.NpeAerogel = NpeAerogel;
++  object.ARCchi2Pi = ARCchi2Pi;
++  object.ARCchi2K = ARCchi2K;
++  object.ARCchi2P = ARCchi2P;
++  object.ARCpid = ARCpid;
++  object.ARCprobPi = ARCprobPi;
++  object.ARCprobK = ARCprobK;
++  object.ARCprobP = ARCprobP;
++  object.ARCmass = ARCmass;
+   object.TrackResolution = TrackResolution;
+   object.NCharged = NCharged;
+   object.NNeutrals = NNeutrals;
+@@ -572,6 +604,22 @@ void Candidate::Clear(Option_t * /*option*/)
+   ZFirstHit = 0.0;
+   Nclusters = 0.0;
+   dNdx = 0.0;
++  CherenkovAngleGas = -1.0;
++  CherenkovAngleAerogel = -1.0;
++  CherenkovRecoAngleGas = -1.0;
++  CherenkovRecoAngleAerogel = -1.0;
++  SigmaThetaCGas = -1.0;
++  SigmaThetaCAerogel = -1.0;
++  NpeGas = 0.0;
++  NpeAerogel = 0.0;
++  ARCchi2Pi = -1.0;
++  ARCchi2K = -1.0;
++  ARCchi2P = -1.0;
++  ARCpid = 0;
++  ARCprobPi = -1.0;
++  ARCprobK = -1.0;
++  ARCprobP = -1.0;
++  ARCmass = -1.0;
+   TrackResolution = 0.0;
+   NCharged = 0;
+   NNeutrals = 0;
+diff --git a/classes/DelphesClasses.h b/classes/DelphesClasses.h
+index 598dc4d..c42a9af 100644
+--- a/classes/DelphesClasses.h
++++ b/classes/DelphesClasses.h
+@@ -490,6 +490,24 @@ public:
+   Float_t Nclusters; // Number of ionization clusters
+   Float_t dNdx; // Number of ionization clusters
+ 
++  // ARC (Array of RICH Cells) Cherenkov emulation, see modules/ARCPID
++  Float_t CherenkovAngleGas; // true Cherenkov angle in the gas radiator [rad] (-1 if no ring)
++  Float_t CherenkovAngleAerogel; // true Cherenkov angle in the aerogel radiator [rad] (-1 if no ring)
++  Float_t CherenkovRecoAngleGas; // measured (smeared) Cherenkov angle, gas [rad] (-1 if no ring)
++  Float_t CherenkovRecoAngleAerogel; // measured (smeared) Cherenkov angle, aerogel [rad] (-1 if no ring)
++  Float_t SigmaThetaCGas; // per-track angular resolution, gas [rad]
++  Float_t SigmaThetaCAerogel; // per-track angular resolution, aerogel [rad]
++  Float_t NpeGas; // expected photo-electron yield, gas
++  Float_t NpeAerogel; // expected photo-electron yield, aerogel
++  Float_t ARCchi2Pi; // chi2 of the pion hypothesis (-1 if no ring)
++  Float_t ARCchi2K; // chi2 of the kaon hypothesis (-1 if no ring)
++  Float_t ARCchi2P; // chi2 of the proton hypothesis (-1 if no ring)
++  Int_t ARCpid; // +-211 / +-321 / +-2212 best hypothesis, 0 if no ring
++  Float_t ARCprobPi; // probability of the pion hypothesis from the ARC chi2 (-1 if no ring)
++  Float_t ARCprobK; // probability of the kaon hypothesis (-1 if no ring)
++  Float_t ARCprobP; // probability of the proton hypothesis (-1 if no ring)
++  Float_t ARCmass; // mass of the best ARC hypothesis [GeV] (-1 if no ring)
++
+   Float_t ErrorP; // track momentum error
+   Float_t ErrorPT; // track transverse momentum error
+   Float_t ErrorPhi; // track azimuthal angle error
+@@ -522,7 +540,7 @@ public:
+   TLorentzVector P4() const;
+   TMatrixDSym CovarianceMatrix() const;
+ 
+-  ClassDef(Track, 4)
++  ClassDef(Track, 5)
+ };
+ 
+ //---------------------------------------------------------------------------
+@@ -794,6 +812,24 @@ public:
+   Float_t Nclusters; // Number of ionization clusters
+   Float_t dNdx; // Number of ionization clusters per unit length
+ 
++  // ARC (Array of RICH Cells) Cherenkov emulation, see modules/ARCPID
++  Float_t CherenkovAngleGas; // true Cherenkov angle in the gas radiator [rad] (-1 if no ring)
++  Float_t CherenkovAngleAerogel; // true Cherenkov angle in the aerogel radiator [rad] (-1 if no ring)
++  Float_t CherenkovRecoAngleGas; // measured (smeared) Cherenkov angle, gas [rad] (-1 if no ring)
++  Float_t CherenkovRecoAngleAerogel; // measured (smeared) Cherenkov angle, aerogel [rad] (-1 if no ring)
++  Float_t SigmaThetaCGas; // per-track angular resolution, gas [rad]
++  Float_t SigmaThetaCAerogel; // per-track angular resolution, aerogel [rad]
++  Float_t NpeGas; // expected photo-electron yield, gas
++  Float_t NpeAerogel; // expected photo-electron yield, aerogel
++  Float_t ARCchi2Pi; // chi2 of the pion hypothesis (-1 if no ring)
++  Float_t ARCchi2K; // chi2 of the kaon hypothesis (-1 if no ring)
++  Float_t ARCchi2P; // chi2 of the proton hypothesis (-1 if no ring)
++  Int_t ARCpid; // +-211 / +-321 / +-2212 best hypothesis, 0 if no ring
++  Float_t ARCprobPi; // probability of the pion hypothesis from the ARC chi2 (-1 if no ring)
++  Float_t ARCprobK; // probability of the kaon hypothesis (-1 if no ring)
++  Float_t ARCprobP; // probability of the proton hypothesis (-1 if no ring)
++  Float_t ARCmass; // mass of the best ARC hypothesis [GeV] (-1 if no ring)
++
+   Float_t Xd;
+   Float_t Yd;
+   Float_t Zd;
+@@ -892,7 +928,7 @@ private:
+ 
+   void SetFactory(DelphesFactory *factory) { fFactory = factory; }
+ 
+-  ClassDef(Candidate, 7)
++  ClassDef(Candidate, 8)
+ };
+ 
+ #endif // DelphesClasses_h
+diff --git a/examples/ALFA/README.md b/examples/ALFA/README.md
+new file mode 100644
+index 0000000..8a1415a
+--- /dev/null
++++ b/examples/ALFA/README.md
+@@ -0,0 +1,66 @@
++# ALFA Delphes card with ARC particle identification
++
++Files added to Delphes:
++
++| File | What |
++|---|---|
++| `modules/ARCPID.h`, `modules/ARCPID.cc` | per-track Cherenkov emulation of the ARC (gas + aerogel), chi2 PID |
++| `classes/DelphesClasses.h/.cc` | 16 new members on `Candidate` and `Track` (see below); `ClassDef` versions bumped |
++| `modules/TreeWriter.cc` | fills the new `Track` members |
++| `modules/ModulesLinkDef.h` | registers `ARCPID` |
++| `cards/delphes_card_ALFA.tcl` | the ALFA card (3 T, all-MAPS tracker, ARC, GRAiNITA ECAL) |
++| `examples/ALFA/gun_{pip,kp,p}.cmnd` | Pythia8 single-particle guns, log-uniform p in 0.1-60 GeV, abs(eta) < 2.6 |
++| `examples/ALFA/arc_separation.py` | separation power and confusion matrix from the output |
++
++## Build
++
++```bash
++# key4hep stack gives ROOT, Pythia8, HepMC
++source /cvmfs/sw-nightlies.hsf.org/key4hep/setup.sh
++./configure          # regenerates the Makefile so the new module is picked up
++make -j8 HAS_PYTHIA8=true
++# or: mkdir build && cd build && cmake .. && make -j8
++```
++
++## Run
++
++```bash
++./DelphesPythia8 cards/delphes_card_ALFA.tcl examples/ALFA/gun_kp.cmnd  kp.root
++./DelphesPythia8 cards/delphes_card_ALFA.tcl examples/ALFA/gun_pip.cmnd pip.root
++./DelphesPythia8 cards/delphes_card_ALFA.tcl examples/ALFA/gun_p.cmnd   p.root
++python3 examples/ALFA/arc_separation.py --pi pip.root --k kp.root --p p.root --out plots
++```
++
++Expected with the first-pass parameters (ARCPID study, July 2026): pi/K >= 3 sigma up to ~14 GeV (aerogel) and ~38 GeV (gas); K/p to ~23 GeV (aerogel) and ~64 GeV (gas); confusion between pi and K only above ~38 GeV.
++
++## Track members
++
++```
++Track.CherenkovAngleGas / CherenkovAngleAerogel         true Cherenkov angle [rad], -1 if no ring
++Track.CherenkovRecoAngleGas / CherenkovRecoAngleAerogel measured (smeared) angle [rad], -1 if no ring
++Track.SigmaThetaCGas / SigmaThetaCAerogel               per-track angular resolution [rad]
++Track.NpeGas / NpeAerogel                               expected photo-electrons (stored even below MinPe)
++Track.ARCchi2Pi / ARCchi2K / ARCchi2P                   per-hypothesis chi2, -1 if no ring
++Track.ARCpid                                            +-211 / +-321 / +-2212 (smallest chi2), 0 if no ring
++Track.ARCprobPi / ARCprobK / ARCprobP                   hypothesis probabilities exp(-chi2/2), normalised to 1 (equal priors), -1 if no ring
++Track.ARCmass                                           mass of the best hypothesis [GeV], -1 if no ring
++```
++
++Hard PID: cut on `ARCpid` (or use `ARCmass` as the track mass with 100% weight). Soft PID: the probabilities, e.g. a track that is 5% pi / 90% K / 5% p carries `ARCprobPi = 0.05, ARCprobK = 0.90, ARCprobP = 0.05`; kaon enrichment with `ARCprobK > 0.9` or `ARCchi2K < ARCchi2Pi - 4`. Equal priors are assumed; multiply by your own priors (e.g. pi:K:p ~ 0.8:0.1:0.1 in Z jets) and renormalise if needed.
++
++## The algorithm (per track)
++
++1. Region: a track is in the barrel if its straight-line extrapolation reaches r = BarrelRmin at |z| <= BarrelZmax, otherwise in an endcap if it crosses |z| = EndcapZmin at EndcapRmin <= r <= EndcapRmax. Curlers (2 R_curv < BarrelRmax) get nothing.
++2. Path length: L = t / sin(theta) in the barrel, t / |cos(theta)| in the endcap, with t the radiator thickness (full cell depth for every covered track).
++3. True angle: cos(theta_c) = 1 / (n beta) from the true mass and momentum; no ring below threshold.
++4. Yield: N_pe = N_sat (L/L_ref) sin^2(theta_c) / sin^2(theta_c,max). A ring is usable if N_pe >= MinPe and it passes the ring-finding efficiency formula.
++5. Resolution: per photon sigma_1^2 = sigma_single^2 + sigma_chrom^2 with the chromatic term sigma_chrom = (dn/dE * sigma_E) / (n tan theta_c) from the card's `GasDnDe`/`GasSigmaE` (and the aerogel equivalents; 0 = folded into sigma_single); plus a bending term sigma_bend = BendingCoefficient * 0.3 B L sin(theta) / p (the track direction changes across the radiator in the field; 1/sqrt(12) for uniform emission, ~4 mrad per photon at 10 GeV in 15 cm of gas at 3 T); per track sigma = sqrt(sigma_1^2 / N_pe + SigmaTrack^2); measured angle = true + Gauss(sigma).
++6. PID: for h in {pi, K, p} at the smeared momentum, chi2_h = sum over radiators of ((measured - theta_h)/sigma_h)^2. A measured ring where h predicts none adds (measured/sigma)^2; no ring where h predicts N_h photons adds 2 N_h. Smallest chi2 wins.
++
++## Parameters to calibrate on the k4geo full simulation
++
++Per radiator: `n` (from the material at the detected-spectrum-weighted energy), `dn/dE` at that energy and `sigma_E` of the detected spectrum (chromatic term), `N_sat` (yield at beta = 1, normal incidence, L = L_ref, after PDE and mirror reflectivity), `sigma_single` (per-track sigma times sqrt(N_pe)). Then the efficiency formulas (barrel-endcap crack at |cos theta| ~ 0.73, ring-off-sensor losses) and `SigmaTrack`. The ALFA ARC task board (tasks T05/T06) produces them in this format.
++
++## Known simplifications
++
++Single-radiator smearing only (no photon-level simulation, no background hits, no cell boundaries), straight-line region assignment, constant sigma_single. The HCAL resolution in the card is a placeholder. The tracker endcap layout follows the July 2026 ALFA card; the engineering design is in progress.
+diff --git a/examples/ALFA/arc_separation.py b/examples/ALFA/arc_separation.py
+new file mode 100644
+index 0000000..e9792f1
+--- /dev/null
++++ b/examples/ALFA/arc_separation.py
+@@ -0,0 +1,147 @@
++#!/usr/bin/env python3
++"""ARC validation for the ALFA Delphes card.
++
++Reads the Delphes output of the three single-particle gun runs (pi+, K+, p) and
++produces, per radiator:
++  * mean measured Cherenkov angle vs momentum per species,
++  * per-track angular resolution vs momentum,
++  * separation power N_sigma(pi/K) and N_sigma(K/p) vs momentum, with the
++    analytic expectation theta_c = acos(1/(n beta)), sigma = sigma_single/sqrt(N_pe),
++  * the 3-sigma reach in GeV,
++  * the PID confusion matrix (ARCpid vs truth).
++
++Usage:
++  python3 arc_separation.py --pi pip.root --k kp.root --p p.root [--out plots] \
++      [--n-gas 1.0013 --n-aero 1.03 --sig-gas 1.3e-3 --sig-aero 1.5e-3 \
++       --nsat-gas 14 --nsat-aero 7]
++
++Needs ROOT with the Delphes library loadable (libDelphes.so in LD_LIBRARY_PATH).
++"""
++import argparse
++import math
++import os
++import sys
++
++import numpy as np
++
++try:
++    import ROOT
++except ImportError:
++    sys.exit("ROOT is required (source the key4hep stack or your Delphes environment)")
++
++MASS = {"pi": 0.13957039, "K": 0.493677, "p": 0.93827209}
++PDG = {"pi": 211, "K": 321, "p": 2212}
++
++
++def load_tracks(path, label):
++    """Return a dict of numpy arrays with the ARC members of every track."""
++    ROOT.gSystem.Load("libDelphes")
++    f = ROOT.TFile.Open(path)
++    tree = f.Get("Delphes")
++    cols = ["P", "Eta", "CherenkovRecoAngleGas", "CherenkovRecoAngleAerogel",
++            "SigmaThetaCGas", "SigmaThetaCAerogel", "NpeGas", "NpeAerogel", "ARCpid"]
++    data = {c: [] for c in cols}
++    data["label"] = label
++    for ev in tree:
++        for tr in ev.Track:
++            for c in cols:
++                data[c].append(getattr(tr, c))
++    f.Close()
++    return {k: (np.array(v) if k != "label" else v) for k, v in data.items()}
++
++
++def theta_c(n, p, m):
++    beta = p / math.sqrt(p * p + m * m)
++    c = 1.0 / (n * beta)
++    return math.acos(c) if c < 1 else float("nan")
++
++
++def npe(nsat, n, p, m):
++    beta = p / math.sqrt(p * p + m * m)
++    c = 1.0 / (n * beta)
++    if c >= 1:
++        return 0.0
++    return nsat * (1 - c * c) / (1 - 1 / (n * n))
++
++
++def binned(x, y, edges):
++    """Mean and std of y in bins of x (ignoring y < 0)."""
++    means, stds, cnt = [], [], []
++    for lo, hi in zip(edges[:-1], edges[1:]):
++        sel = (x >= lo) & (x < hi) & (y >= 0)
++        if sel.sum() < 5:
++            means.append(np.nan); stds.append(np.nan); cnt.append(sel.sum()); continue
++        means.append(y[sel].mean()); stds.append(y[sel].std()); cnt.append(sel.sum())
++    return np.array(means), np.array(stds), np.array(cnt)
++
++
++def main():
++    ap = argparse.ArgumentParser()
++    ap.add_argument("--pi", required=True); ap.add_argument("--k", required=True); ap.add_argument("--p", required=True)
++    ap.add_argument("--out", default="plots")
++    ap.add_argument("--n-gas", type=float, default=1.00132); ap.add_argument("--n-aero", type=float, default=1.02)
++    ap.add_argument("--sig-gas", type=float, default=1.31e-3, help="TOTAL per-photon sigma (non-chromatic (+) chromatic) for the analytic curve"); ap.add_argument("--sig-aero", type=float, default=1.5e-3)
++    ap.add_argument("--nsat-gas", type=float, default=14.0); ap.add_argument("--nsat-aero", type=float, default=7.0)
++    ap.add_argument("--eta-max", type=float, default=0.8, help="barrel-only selection for the separation plots")
++    args = ap.parse_args()
++    os.makedirs(args.out, exist_ok=True)
++
++    import matplotlib
++    matplotlib.use("Agg")
++    import matplotlib.pyplot as plt
++
++    d = {"pi": load_tracks(args.pi, "pi"), "K": load_tracks(args.k, "K"), "p": load_tracks(args.p, "p")}
++    edges = np.logspace(np.log10(0.5), np.log10(60), 25)
++    centers = np.sqrt(edges[:-1] * edges[1:])
++
++    rad = {"gas": ("CherenkovRecoAngleGas", "SigmaThetaCGas", "NpeGas", args.n_gas, args.sig_gas, args.nsat_gas),
++           "aerogel": ("CherenkovRecoAngleAerogel", "SigmaThetaCAerogel", "NpeAerogel", args.n_aero, args.sig_aero, args.nsat_aero)}
++
++    summary = []
++    fig, axes = plt.subplots(1, 2, figsize=(12, 5))
++    for ax, (rname, (ang, sig, npe_col, n, s1, nsat)) in zip(axes, rad.items()):
++        stats = {}
++        for sp in ("pi", "K", "p"):
++            x = d[sp]["P"]; sel = np.abs(d[sp]["Eta"]) < args.eta_max
++            m, s, c = binned(x[sel], d[sp][ang][sel], edges)
++            ms, _, _ = binned(x[sel], d[sp][sig][sel], edges)
++            stats[sp] = (m, ms)
++        for pair, col in ((("pi", "K"), "tab:blue"), (("K", "p"), "tab:orange")):
++            a, b = pair
++            nsig = np.abs(stats[a][0] - stats[b][0]) / np.sqrt(stats[a][1] ** 2 + stats[b][1] ** 2)
++            ax.plot(centers, nsig, "o", color=col, label=f"{a}/{b} Delphes (ARCPID)")
++            # analytic
++            an = []
++            for pc in centers:
++                ta, tb = theta_c(n, pc, MASS[a]), theta_c(n, pc, MASS[b])
++                na, nb = npe(nsat, n, pc, MASS[a]), npe(nsat, n, pc, MASS[b])
++                if any(map(math.isnan, (ta, tb))) or na < 3 or nb < 3:
++                    an.append(np.nan); continue
++                an.append(abs(ta - tb) / math.sqrt(s1 ** 2 / na + s1 ** 2 / nb))
++            an = np.array(an)
++            ax.plot(centers, an, "--", color=col, label=f"{a}/{b} analytic")
++            ok = np.where(np.nan_to_num(nsig) >= 3)[0]
++            reach = centers[ok].max() if ok.size else float("nan")
++            summary.append((rname, f"{a}/{b}", reach))
++        ax.axhline(3, color="grey", ls=":")
++        ax.set_xscale("log"); ax.set_yscale("log"); ax.set_xlabel("p [GeV]"); ax.set_ylabel(r"$N_\sigma$")
++        ax.set_title(f"ARC {rname}: n = {n}, $\\sigma_1$ = {s1*1e3:.2f} mrad, $N_{{sat}}$ = {nsat}")
++        ax.legend(fontsize=8); ax.grid(alpha=0.3)
++    fig.tight_layout(); fig.savefig(os.path.join(args.out, "arc_separation.png"), dpi=150)
++
++    # confusion matrix (barrel + endcap, all p with a ring)
++    print("\nPID confusion (rows: truth, columns: ARCpid = pi, K, p, none), tracks with |eta| < 2.6:")
++    for sp in ("pi", "K", "p"):
++        pid = np.abs(d[sp]["ARCpid"])
++        tot = len(pid)
++        row = [np.sum(pid == PDG[q]) / tot for q in ("pi", "K", "p")] + [np.sum(pid == 0) / tot]
++        print(f"  {sp:3s}  " + "  ".join(f"{v:6.3f}" for v in row))
++
++    print("\n3-sigma reach [GeV] (|eta| < %.1f):" % args.eta_max)
++    for r, pair, reach in summary:
++        print(f"  {r:8s} {pair:5s} {reach:6.1f}")
++    print(f"\nplots in {args.out}/arc_separation.png")
++
++
++if __name__ == "__main__":
++    main()
+diff --git a/examples/ALFA/gun_kp.cmnd b/examples/ALFA/gun_kp.cmnd
+new file mode 100644
+index 0000000..db0a01c
+--- /dev/null
++++ b/examples/ALFA/gun_kp.cmnd
+@@ -0,0 +1,14 @@
++! Single-particle gun for the ALFA ARC validation: PDG 321, log-uniform p in [0.1, 60] GeV, |eta| < 2.6
++ProcessLevel:all = off
++Main:numberOfEvents = 20000
++Main:timesAllowErrors = 3
++Main:spareFlag1 = on
++Main:spareMode1 = 321
++Main:spareParm1 = 60.0
++Main:spareParm2 = 2.6
++Init:showChangedSettings = off
++Init:showChangedParticleData = off
++Next:numberCount = 1000
++Next:numberShowInfo = 0
++Next:numberShowProcess = 0
++Next:numberShowEvent = 0
+diff --git a/examples/ALFA/gun_p.cmnd b/examples/ALFA/gun_p.cmnd
+new file mode 100644
+index 0000000..5dea335
+--- /dev/null
++++ b/examples/ALFA/gun_p.cmnd
+@@ -0,0 +1,14 @@
++! Single-particle gun for the ALFA ARC validation: PDG 2212, log-uniform p in [0.1, 60] GeV, |eta| < 2.6
++ProcessLevel:all = off
++Main:numberOfEvents = 20000
++Main:timesAllowErrors = 3
++Main:spareFlag1 = on
++Main:spareMode1 = 2212
++Main:spareParm1 = 60.0
++Main:spareParm2 = 2.6
++Init:showChangedSettings = off
++Init:showChangedParticleData = off
++Next:numberCount = 1000
++Next:numberShowInfo = 0
++Next:numberShowProcess = 0
++Next:numberShowEvent = 0
+diff --git a/examples/ALFA/gun_pip.cmnd b/examples/ALFA/gun_pip.cmnd
+new file mode 100644
+index 0000000..235d13d
+--- /dev/null
++++ b/examples/ALFA/gun_pip.cmnd
+@@ -0,0 +1,14 @@
++! Single-particle gun for the ALFA ARC validation: PDG 211, log-uniform p in [0.1, 60] GeV, |eta| < 2.6
++ProcessLevel:all = off
++Main:numberOfEvents = 20000
++Main:timesAllowErrors = 3
++Main:spareFlag1 = on
++Main:spareMode1 = 211
++Main:spareParm1 = 60.0
++Main:spareParm2 = 2.6
++Init:showChangedSettings = off
++Init:showChangedParticleData = off
++Next:numberCount = 1000
++Next:numberShowInfo = 0
++Next:numberShowProcess = 0
++Next:numberShowEvent = 0
+diff --git a/modules/ARCPID.cc b/modules/ARCPID.cc
+new file mode 100644
+index 0000000..9ee412a
+--- /dev/null
++++ b/modules/ARCPID.cc
+@@ -0,0 +1,344 @@
++/*
++ *  Delphes: a framework for fast simulation of a generic collider experiment
++ *  Copyright (C) 2012-2014  Universite catholique de Louvain (UCL), Belgium
++ *
++ *  This program is free software: you can redistribute it and/or modify
++ *  it under the terms of the GNU General Public License as published by
++ *  the Free Software Foundation, either version 3 of the License, or
++ *  (at your option) any later version.
++ *
++ *  This program is distributed in the hope that it will be useful,
++ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ *  GNU General Public License for more details.
++ *
++ *  You should have received a copy of the GNU General Public License
++ *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
++ */
++
++/** \class ARCPID
++ *
++ *  Per-track Cherenkov emulation of the ARC (Array of RICH Cells) detector.
++ *  See ARCPID.h for the algorithm. Besides the per-hypothesis chi2 it stores
++ *  normalised hypothesis probabilities and the mass of the best hypothesis.
++ *
++ */
++
++#include "modules/ARCPID.h"
++
++#include "classes/DelphesClasses.h"
++#include "classes/DelphesFormula.h"
++
++#include "TLorentzVector.h"
++#include "TMath.h"
++#include "TObjArray.h"
++#include "TRandom3.h"
++
++#include <cmath>
++#include <iostream>
++#include <memory>
++
++using namespace std;
++
++namespace
++{
++  const Double_t kMassPi = 0.13957039;
++  const Double_t kMassK = 0.493677;
++  const Double_t kMassP = 0.93827209;
++}
++
++//------------------------------------------------------------------------------
++
++ARCPID::ARCPID()
++{
++  fGasEfficiency = make_unique<DelphesFormula>();
++  fAerogelEfficiency = make_unique<DelphesFormula>();
++}
++
++//------------------------------------------------------------------------------
++
++ARCPID::~ARCPID()
++{
++}
++
++//------------------------------------------------------------------------------
++
++void ARCPID::Init()
++{
++  // ARC envelope, in meters. The barrel is a cylinder r in [BarrelRmin, BarrelRmax],
++  // |z| <= BarrelZmax; the endcaps are disks |z| in [EndcapZmin, EndcapZmax],
++  // r in [EndcapRmin, EndcapRmax]. Defaults follow k4geo ALFA_o1_v01.
++  fBarrelRmin = GetDouble("BarrelRmin", 1.90);
++  fBarrelRmax = GetDouble("BarrelRmax", 2.10);
++  fBarrelZmax = GetDouble("BarrelZmax", 2.20);
++  fEndcapZmin = GetDouble("EndcapZmin", 2.00);
++  fEndcapZmax = GetDouble("EndcapZmax", 2.20);
++  fEndcapRmin = GetDouble("EndcapRmin", 0.28);
++  fEndcapRmax = GetDouble("EndcapRmax", 1.90);
++
++  fBz = GetDouble("Bz", 2.0);
++
++  // gas radiator (defaults: xenon at 2 bar, which has the index of C4F10 at 1 bar)
++  fRad[kGas].n = GetDouble("GasRefractiveIndex", 1.0014);
++  fRad[kGas].sigmaSingle = GetDouble("GasSigmaSingle", 1.3E-3);
++  fRad[kGas].dnde = GetDouble("GasDnDe", 0.0);
++  fRad[kGas].sigmaE = GetDouble("GasSigmaE", 0.0);
++  fRad[kGas].nSat = GetDouble("GasNsat", 14.0);
++  fRad[kGas].lRef = GetDouble("GasLref", 0.15);
++  fRad[kGas].thickness = GetDouble("GasThickness", 0.15);
++
++  // aerogel radiator
++  fRad[kAerogel].n = GetDouble("AerogelRefractiveIndex", 1.03);
++  fRad[kAerogel].sigmaSingle = GetDouble("AerogelSigmaSingle", 1.5E-3);
++  fRad[kAerogel].dnde = GetDouble("AerogelDnDe", 0.0);
++  fRad[kAerogel].sigmaE = GetDouble("AerogelSigmaE", 0.0);
++  fRad[kAerogel].nSat = GetDouble("AerogelNsat", 7.0);
++  fRad[kAerogel].lRef = GetDouble("AerogelLref", 0.01);
++  fRad[kAerogel].thickness = GetDouble("AerogelThickness", 0.01);
++
++  for(int i = 0; i < 2; ++i)
++  {
++    fRad[i].sin2max = 1.0 - 1.0 / (fRad[i].n * fRad[i].n);
++  }
++
++  fMinPe = GetDouble("MinPe", 3.0);
++  fSigmaTrack = GetDouble("SigmaTrack", 0.0);
++  fBendingCoefficient = GetDouble("BendingCoefficient", 1.0 / TMath::Sqrt(12.0));
++  fPoissonFluctuation = GetBool("PoissonFluctuation", false);
++  fUseTrueMomentumForPID = GetBool("UseTrueMomentumForPID", false);
++
++  // ring-finding efficiency as a function of (pt, eta) of the track; 1.0 = geometric acceptance only
++  fGasEfficiency->Compile(GetString("GasEfficiencyFormula", "1.0"));
++  fAerogelEfficiency->Compile(GetString("AerogelEfficiencyFormula", "1.0"));
++
++  fInputArray = ImportArray(GetString("InputArray", "TrackSmearing/tracks"));
++  fItInputArray.reset(fInputArray->MakeIterator());
++
++  fOutputArray = ExportArray(GetString("OutputArray", "tracks"));
++}
++
++//------------------------------------------------------------------------------
++
++void ARCPID::Finish()
++{
++}
++
++//------------------------------------------------------------------------------
++
++Double_t ARCPID::CherenkovAngle(const RadiatorParams &r, Double_t beta) const
++{
++  Double_t c = 1.0 / (r.n * beta);
++  if(c >= 1.0) return -1.0;
++  return TMath::ACos(c);
++}
++
++//------------------------------------------------------------------------------
++
++Double_t ARCPID::SigmaSinglePhoton(const RadiatorParams &r, Double_t thetaC, Double_t bend) const
++{
++  Double_t chrom = 0.0;
++  if(r.dnde > 0.0 && r.sigmaE > 0.0 && thetaC > 0.0)
++  {
++    chrom = r.dnde * r.sigmaE / (r.n * TMath::Tan(thetaC));
++  }
++  return TMath::Sqrt(r.sigmaSingle * r.sigmaSingle + chrom * chrom + bend * bend);
++}
++
++//------------------------------------------------------------------------------
++
++Double_t ARCPID::SigmaTrack(const RadiatorParams &r, Double_t thetaC, Double_t npe, Double_t bend) const
++{
++  Double_t s1 = SigmaSinglePhoton(r, thetaC, bend);
++  return TMath::Sqrt(s1 * s1 / npe + fSigmaTrack * fSigmaTrack);
++}
++
++//------------------------------------------------------------------------------
++
++Double_t ARCPID::ExpectedNpe(const RadiatorParams &r, Double_t beta, Double_t L) const
++{
++  Double_t c = 1.0 / (r.n * beta);
++  if(c >= 1.0 || L <= 0.0) return 0.0;
++  Double_t sin2 = 1.0 - c * c;
++  return r.nSat * (L / r.lRef) * sin2 / r.sin2max;
++}
++
++//------------------------------------------------------------------------------
++
++void ARCPID::Process()
++{
++  Candidate *candidate, *mother, *particle;
++
++  fItInputArray->Reset();
++  while((candidate = static_cast<Candidate *>(fItInputArray->Next())))
++  {
++    // the first daughter is the generated particle: true momentum and mass
++    particle = static_cast<Candidate *>(candidate->GetCandidates()->At(0));
++    const TLorentzVector &trueMomentum = particle->Momentum;
++    const TLorentzVector &recoMomentum = candidate->Momentum;
++
++    mother = candidate;
++    candidate = static_cast<Candidate *>(candidate->Clone());
++
++    // defaults: no ring, no PID
++    candidate->CherenkovAngleGas = -1.0;
++    candidate->CherenkovAngleAerogel = -1.0;
++    candidate->CherenkovRecoAngleGas = -1.0;
++    candidate->CherenkovRecoAngleAerogel = -1.0;
++    candidate->SigmaThetaCGas = -1.0;
++    candidate->SigmaThetaCAerogel = -1.0;
++    candidate->NpeGas = 0.0;
++    candidate->NpeAerogel = 0.0;
++    candidate->ARCchi2Pi = -1.0;
++    candidate->ARCchi2K = -1.0;
++    candidate->ARCchi2P = -1.0;
++    candidate->ARCpid = 0;
++    candidate->ARCprobPi = -1.0;
++    candidate->ARCprobK = -1.0;
++    candidate->ARCprobP = -1.0;
++    candidate->ARCmass = -1.0;
++
++    Double_t pTrue = trueMomentum.P();
++    Double_t pt = trueMomentum.Pt();
++    Double_t theta = trueMomentum.Theta();
++    Double_t eta = trueMomentum.Eta();
++    Double_t mass = trueMomentum.M();
++    Double_t charge = candidate->Charge;
++
++    Bool_t covered = kFALSE;
++    Double_t pathFactor = 0.0; // L = thickness * pathFactor
++
++    if(pTrue > 0.0 && TMath::Abs(TMath::Sin(theta)) > 1.0E-6 && TMath::Abs(TMath::Cos(theta)) > 1.0E-6)
++    {
++      // curler rejection: the helix must reach the outer radius of the barrel
++      Double_t rCurv = pt / (0.3 * TMath::Abs(fBz)); // m, with pt in GeV and B in T
++      Bool_t reaches = (fBz == 0.0) || (2.0 * rCurv > fBarrelRmax);
++
++      // straight-line region assignment (barrel first, then endcaps)
++      Double_t zAtBarrel = fBarrelRmin / TMath::Tan(theta);
++      Double_t rAtEndcap = fEndcapZmin * TMath::Abs(TMath::Tan(theta));
++
++      if(reaches && TMath::Abs(zAtBarrel) <= fBarrelZmax)
++      {
++        covered = kTRUE;
++        pathFactor = 1.0 / TMath::Abs(TMath::Sin(theta));
++      }
++      else if(reaches && rAtEndcap >= fEndcapRmin && rAtEndcap <= fEndcapRmax)
++      {
++        covered = kTRUE;
++        pathFactor = 1.0 / TMath::Abs(TMath::Cos(theta));
++      }
++    }
++
++    if(covered)
++    {
++      Double_t beta = pTrue / TMath::Sqrt(pTrue * pTrue + mass * mass);
++
++      Double_t trueAngle[2], recoAngle[2], sigma[2], npe[2], bend[2];
++      Bool_t usable[2];
++
++      for(int i = 0; i < 2; ++i)
++      {
++        Double_t L = fRad[i].thickness * pathFactor;
++        // direction change of the track across the radiator: 0.3 B L_T / p with L_T the transverse projection [rad]
++        bend[i] = fBendingCoefficient * 0.3 * TMath::Abs(fBz) * L * TMath::Abs(TMath::Sin(theta)) / pTrue;
++        trueAngle[i] = CherenkovAngle(fRad[i], beta);
++        npe[i] = ExpectedNpe(fRad[i], beta, L);
++        if(fPoissonFluctuation && npe[i] > 0.0) npe[i] = gRandom->Poisson(npe[i]);
++
++        DelphesFormula *eff = (i == kGas) ? fGasEfficiency.get() : fAerogelEfficiency.get();
++        Bool_t found = gRandom->Uniform() <= eff->Eval(pt, eta, trueMomentum.Phi(), trueMomentum.E(), candidate);
++
++        usable[i] = (trueAngle[i] > 0.0) && (npe[i] >= fMinPe) && found;
++        recoAngle[i] = -1.0;
++        sigma[i] = -1.0;
++        if(usable[i])
++        {
++          sigma[i] = SigmaTrack(fRad[i], trueAngle[i], npe[i], bend[i]);
++          recoAngle[i] = gRandom->Gaus(trueAngle[i], sigma[i]);
++        }
++      }
++
++      candidate->CherenkovAngleGas = trueAngle[kGas];
++      candidate->CherenkovAngleAerogel = trueAngle[kAerogel];
++      candidate->CherenkovRecoAngleGas = recoAngle[kGas];
++      candidate->CherenkovRecoAngleAerogel = recoAngle[kAerogel];
++      candidate->SigmaThetaCGas = sigma[kGas];
++      candidate->SigmaThetaCAerogel = sigma[kAerogel];
++      candidate->NpeGas = npe[kGas];
++      candidate->NpeAerogel = npe[kAerogel];
++
++      // particle identification: chi2 of the measured angle(s) against pi/K/p
++      // at the reconstructed momentum (or the true one, on request)
++      Double_t pHyp = fUseTrueMomentumForPID ? pTrue : recoMomentum.P();
++      if(pHyp <= 0.0) pHyp = pTrue;
++
++      const Double_t masses[3] = {kMassPi, kMassK, kMassP};
++      const Int_t pdg[3] = {211, 321, 2212};
++      Double_t chi2[3] = {-1.0, -1.0, -1.0};
++      Bool_t anyRing = usable[kGas] || usable[kAerogel];
++
++      if(anyRing)
++      {
++        for(int h = 0; h < 3; ++h)
++        {
++          Double_t betaH = pHyp / TMath::Sqrt(pHyp * pHyp + masses[h] * masses[h]);
++          Double_t c2 = 0.0;
++          for(int i = 0; i < 2; ++i)
++          {
++            Double_t L = fRad[i].thickness * pathFactor;
++            Double_t angH = CherenkovAngle(fRad[i], betaH);
++            Double_t npeH = ExpectedNpe(fRad[i], betaH, L);
++            Bool_t ringExpected = (angH > 0.0) && (npeH >= fMinPe);
++
++            if(usable[i] && ringExpected)
++            {
++              Double_t sigH = SigmaTrack(fRad[i], angH, npeH, bend[i]);
++              Double_t d = (recoAngle[i] - angH) / sigH;
++              c2 += d * d;
++            }
++            else if(usable[i] && !ringExpected)
++            {
++              // a ring was measured where this hypothesis predicts none
++              Double_t d = recoAngle[i] / sigma[i];
++              c2 += d * d;
++            }
++            else if(!usable[i] && ringExpected)
++            {
++              // no ring measured where this hypothesis predicts npeH photons:
++              // -2 ln P(0 | npeH) = 2 npeH
++              c2 += 2.0 * npeH;
++            }
++          }
++          chi2[h] = c2;
++        }
++
++        int best = 0;
++        for(int h = 1; h < 3; ++h)
++          if(chi2[h] < chi2[best]) best = h;
++
++        candidate->ARCchi2Pi = chi2[0];
++        candidate->ARCchi2K = chi2[1];
++        candidate->ARCchi2P = chi2[2];
++        candidate->ARCpid = (charge < 0.0 ? -1 : 1) * pdg[best];
++        candidate->ARCmass = masses[best];
++
++        // hypothesis probabilities from the chi2 values (equal priors):
++        // P_h = exp(-chi2_h/2) / sum_h' exp(-chi2_h'/2), computed relative to the best to avoid underflow
++        Double_t w[3], wsum = 0.0;
++        for(int h = 0; h < 3; ++h)
++        {
++          w[h] = TMath::Exp(-0.5 * (chi2[h] - chi2[best]));
++          wsum += w[h];
++        }
++        candidate->ARCprobPi = w[0] / wsum;
++        candidate->ARCprobK = w[1] / wsum;
++        candidate->ARCprobP = w[2] / wsum;
++      }
++    }
++
++    candidate->AddCandidate(mother);
++    fOutputArray->Add(candidate);
++  }
++}
++
++//------------------------------------------------------------------------------
+diff --git a/modules/ARCPID.h b/modules/ARCPID.h
+new file mode 100644
+index 0000000..0ba7e52
+--- /dev/null
++++ b/modules/ARCPID.h
+@@ -0,0 +1,125 @@
++/*
++ *  Delphes: a framework for fast simulation of a generic collider experiment
++ *  Copyright (C) 2012-2014  Universite catholique de Louvain (UCL), Belgium
++ *
++ *  This program is free software: you can redistribute it and/or modify
++ *  it under the terms of the GNU General Public License as published by
++ *  the Free Software Foundation, either version 3 of the License, or
++ *  (at your option) any later version.
++ *
++ *  This program is distributed in the hope that it will be useful,
++ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ *  GNU General Public License for more details.
++ *
++ *  You should have received a copy of the GNU General Public License
++ *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
++ */
++
++#ifndef ARCPID_h
++#define ARCPID_h
++
++/** \class ARCPID
++ *
++ *  Per-track emulation of a dual-radiator RICH built from an Array of RICH
++ *  Cells (ARC): a gas radiator and an aerogel radiator read out by the same
++ *  SiPM plane, as in the ALFA detector concept for FCC-ee.
++ *
++ *  For every charged track that crosses the ARC barrel or one of its endcaps:
++ *   1. path length L through each radiator (full cell depth, L = t/sin(theta)
++ *      in the barrel, L = t/|cos(theta)| in the endcaps); curlers rejected;
++ *   2. true Cherenkov angle cos(theta_c) = 1/(n beta) from the true mass
++ *      and momentum; no ring below threshold;
++ *   3. expected photo-electron yield
++ *      N_pe = N_sat * (L/L_ref) * sin^2(theta_c) / sin^2(theta_c,max);
++ *      a ring is usable when N_pe >= MinPe;
++ *   4. per-track angular resolution sigma = sigma_1/sqrt(N_pe) (+) sigma_track,
++ *      with the per-photon sigma_1^2 = sigma_single^2 + sigma_chrom^2 + sigma_bend^2:
++ *      the chromatic term sigma_chrom = (dn/dE sigma_E) / (n tan theta_c) and the
++ *      bending term sigma_bend = c_bend * 0.3 B L sin(theta) / p (the track direction
++ *      changes along the radiator in the magnetic field; c_bend = 1/sqrt(12) for
++ *      photons emitted uniformly along the path), and a Gaussian-smeared angle;
++ *   5. particle identification: chi^2 of the measured angle(s) against the
++ *      pi, K and p hypotheses at the reconstructed momentum, both radiators
++ *      combined; the smallest chi^2 gives ARCpid and ARCmass, and the
++ *      normalised probabilities P_h = exp(-chi^2_h/2)/sum are stored as
++ *      ARCprobPi/K/P (equal priors; -1 when there is no ring).
++ *
++ *  The parameters n, sigma_single, N_sat and L_ref per radiator are meant to
++ *  be calibrated on the full simulation (k4geo ARC in ALFA_o1_v01).
++ *
++ *  \author ALFA concept group; written from the ARCPID description by
++ *          G. Daniels, S. Pezzulo, M. Defranchis and M. Selvaggi (July 2026).
++ */
++
++#include "classes/DelphesModule.h"
++
++#include <memory>
++
++class TIterator;
++class TObjArray;
++class DelphesFormula;
++
++class ARCPID: public DelphesModule
++{
++public:
++  ARCPID();
++  ~ARCPID();
++
++  void Init();
++  void Process();
++  void Finish();
++
++private:
++  enum Radiator
++  {
++    kGas = 0,
++    kAerogel = 1
++  };
++
++  struct RadiatorParams
++  {
++    Double_t n; // refractive index
++    Double_t sigmaSingle; // single-photon angular resolution, non-chromatic part [rad]
++    Double_t dnde; // dispersion dn/dE at the mean detected photon energy [1/eV]
++    Double_t sigmaE; // rms of the detected photon energy spectrum [eV]
++    Double_t nSat; // photo-electrons at beta = 1 for L = lRef
++    Double_t lRef; // reference path length [m]
++    Double_t thickness; // radial (barrel) / longitudinal (endcap) thickness of the radiator [m]
++    Double_t sin2max; // 1 - 1/n^2
++  };
++
++  // expected yield for a given beta and path length (0 below threshold)
++  Double_t ExpectedNpe(const RadiatorParams &r, Double_t beta, Double_t L) const;
++  // true Cherenkov angle for a given beta (-1 below threshold)
++  Double_t CherenkovAngle(const RadiatorParams &r, Double_t beta) const;
++  // per-photon resolution: non-chromatic part (+) chromatic term dn/dE sigma_E / (n tan theta_c)
++  // (+) track-bending term BendingCoefficient * 0.3 B L sin(theta) / p (emission-point spread in the field)
++  Double_t SigmaSinglePhoton(const RadiatorParams &r, Double_t thetaC, Double_t bend) const;
++  // per-track resolution for npe photons
++  Double_t SigmaTrack(const RadiatorParams &r, Double_t thetaC, Double_t npe, Double_t bend) const;
++
++  // geometry [m]
++  Double_t fBarrelRmin, fBarrelRmax, fBarrelZmax;
++  Double_t fEndcapZmin, fEndcapZmax, fEndcapRmin, fEndcapRmax;
++  Double_t fBz;
++
++  RadiatorParams fRad[2];
++
++  Double_t fMinPe;
++  Double_t fSigmaTrack; // extra angular error from tracking, added in quadrature [rad]
++  Double_t fBendingCoefficient; // per-photon spread from the track curving inside the radiator, in units of the total deflection (1/sqrt(12) for uniform emission); 0 = off
++  Bool_t fPoissonFluctuation; // fluctuate the yield per track
++  Bool_t fUseTrueMomentumForPID; // hypotheses evaluated at the true instead of the reconstructed momentum
++
++  std::unique_ptr<DelphesFormula> fGasEfficiency; //! ring-finding efficiency, gas (eta, pt)
++  std::unique_ptr<DelphesFormula> fAerogelEfficiency; //! ring-finding efficiency, aerogel (eta, pt)
++
++  std::unique_ptr<TIterator> fItInputArray; //!
++  const TObjArray *fInputArray = nullptr; //!
++  TObjArray *fOutputArray = nullptr; //!
++
++  ClassDef(ARCPID, 1)
++};
++
++#endif
+diff --git a/modules/ModulesLinkDef.h b/modules/ModulesLinkDef.h
+index 37a90de..e34a5ef 100644
+--- a/modules/ModulesLinkDef.h
++++ b/modules/ModulesLinkDef.h
+@@ -38,6 +38,7 @@
+ #include "modules/TrackSmearing.h"
+ #include "modules/TrackCovariance.h"
+ #include "modules/ClusterCounting.h"
++#include "modules/ARCPID.h"
+ #include "modules/ImpactParameterSmearing.h"
+ #include "modules/TimeSmearing.h"
+ #include "modules/TimeOfFlight.h"
+@@ -104,6 +105,7 @@
+ #pragma link C++ class TrackSmearing+;
+ #pragma link C++ class TrackCovariance+;
+ #pragma link C++ class ClusterCounting+;
++#pragma link C++ class ARCPID+;
+ #pragma link C++ class ImpactParameterSmearing+;
+ #pragma link C++ class TimeSmearing+;
+ #pragma link C++ class TimeOfFlight+;
+diff --git a/modules/TreeWriter.cc b/modules/TreeWriter.cc
+index 38f2edb..5b99757 100644
+--- a/modules/TreeWriter.cc
++++ b/modules/TreeWriter.cc
+@@ -373,6 +373,22 @@ void TreeWriter::ProcessTracks(ExRootTreeBranch *branch, TObjArray *array)
+     entry->DZ = candidate->DZ;
+     entry->Nclusters = candidate->Nclusters;
+     entry->dNdx = candidate->dNdx;
++    entry->CherenkovAngleGas = candidate->CherenkovAngleGas;
++    entry->CherenkovAngleAerogel = candidate->CherenkovAngleAerogel;
++    entry->CherenkovRecoAngleGas = candidate->CherenkovRecoAngleGas;
++    entry->CherenkovRecoAngleAerogel = candidate->CherenkovRecoAngleAerogel;
++    entry->SigmaThetaCGas = candidate->SigmaThetaCGas;
++    entry->SigmaThetaCAerogel = candidate->SigmaThetaCAerogel;
++    entry->NpeGas = candidate->NpeGas;
++    entry->NpeAerogel = candidate->NpeAerogel;
++    entry->ARCchi2Pi = candidate->ARCchi2Pi;
++    entry->ARCchi2K = candidate->ARCchi2K;
++    entry->ARCchi2P = candidate->ARCchi2P;
++    entry->ARCpid = candidate->ARCpid;
++    entry->ARCprobPi = candidate->ARCprobPi;
++    entry->ARCprobK = candidate->ARCprobK;
++    entry->ARCprobP = candidate->ARCprobP;
++    entry->ARCmass = candidate->ARCmass;
+ 
+     entry->ErrorP = candidate->ErrorP;
+     entry->ErrorPT = candidate->ErrorPT;
+@@ -564,6 +580,22 @@ void TreeWriter::ProcessParticleFlowCandidates(ExRootTreeBranch *branch, TObjArr
+     entry->DZ = candidate->DZ;
+     entry->Nclusters = candidate->Nclusters;
+     entry->dNdx = candidate->dNdx;
++    entry->CherenkovAngleGas = candidate->CherenkovAngleGas;
++    entry->CherenkovAngleAerogel = candidate->CherenkovAngleAerogel;
++    entry->CherenkovRecoAngleGas = candidate->CherenkovRecoAngleGas;
++    entry->CherenkovRecoAngleAerogel = candidate->CherenkovRecoAngleAerogel;
++    entry->SigmaThetaCGas = candidate->SigmaThetaCGas;
++    entry->SigmaThetaCAerogel = candidate->SigmaThetaCAerogel;
++    entry->NpeGas = candidate->NpeGas;
++    entry->NpeAerogel = candidate->NpeAerogel;
++    entry->ARCchi2Pi = candidate->ARCchi2Pi;
++    entry->ARCchi2K = candidate->ARCchi2K;
++    entry->ARCchi2P = candidate->ARCchi2P;
++    entry->ARCpid = candidate->ARCpid;
++    entry->ARCprobPi = candidate->ARCprobPi;
++    entry->ARCprobK = candidate->ARCprobK;
++    entry->ARCprobP = candidate->ARCprobP;
++    entry->ARCmass = candidate->ARCmass;
+ 
+     entry->ErrorP = candidate->ErrorP;
+     entry->ErrorPT = candidate->ErrorPT;
+-- 
+2.52.0
+

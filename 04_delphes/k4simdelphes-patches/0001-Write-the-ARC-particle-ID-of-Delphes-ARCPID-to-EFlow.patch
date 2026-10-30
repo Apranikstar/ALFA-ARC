@@ -1,0 +1,57 @@
+From 3142235bd97eb71129e703dd35ce95e89f044b49 Mon Sep 17 00:00:00 2001
+From: hfatehi <trialoftheniku@gmail.com>
+Date: Fri, 30 Oct 2026 02:58:27 +0100
+Subject: [PATCH 1/8] Write the ARC particle-ID of Delphes ARCPID to
+ EFlowTrack_PID
+
+When the Delphes headers have the ARCPID Track members (Delphes with the ALFA ARCPID module),
+fill the per-track ParticleID that k4SimDelphes already creates and links to the
+ReconstructedParticle: type/algorithmType 1023, PDG = best pi/K/p hypothesis (0 = no ring),
+likelihood = P(K), parameters = P(pi), P(K), P(p), measured angles and resolutions (gas, aerogel),
+expected photons (gas, aerogel), mass of the best hypothesis. Without ARCPID nothing changes.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01KP5vqAGH2XiGXWtPhaonke
+---
+ converter/src/DelphesEDM4HepConverter.cc | 18 ++++++++++++++++++
+ 1 file changed, 18 insertions(+)
+
+diff --git a/converter/src/DelphesEDM4HepConverter.cc b/converter/src/DelphesEDM4HepConverter.cc
+index 0101c04..69768f3 100644
+--- a/converter/src/DelphesEDM4HepConverter.cc
++++ b/converter/src/DelphesEDM4HepConverter.cc
+@@ -250,6 +250,10 @@ void DelphesEDM4HepConverter::processParticles(const TClonesArray* delphesCollec
+   }
+ }
+ 
++#ifdef K4SIMDELPHES_HAS_ARCPID
++constexpr int ARCPID_TYPE = 1023; // user-defined ParticleID type of the ARC hypothesis
++#endif
++
+ void DelphesEDM4HepConverter::processTracks(const TClonesArray* delphesCollection, std::string const& branch) {
+   auto* particleCollection = getCollection<edm4hep::ReconstructedParticleCollection>(m_recoCollName);
+   auto* trackCollection = createCollection<edm4hep::TrackCollection>(branch);
+@@ -312,6 +316,20 @@ void DelphesEDM4HepConverter::processTracks(const TClonesArray* delphesCollectio
+     cand.addToTracks(track);
+ 
+     // id.addToParameters(delphesCand->IsolationVar);
++#ifdef K4SIMDELPHES_HAS_ARCPID
++    // ARC particle identification from the Delphes ARCPID module (ALFA): PDG of the best pi/K/p hypothesis (0 = no ring),
++    // likelihood = P(K), parameters = [P(pi), P(K), P(p), measured Cherenkov angle gas, aerogel [rad] (-1 = no ring),
++    // per-track angle resolution gas, aerogel [rad], expected photons gas, aerogel, mass of the best hypothesis [GeV]]
++    id.setType(ARCPID_TYPE);
++    id.setAlgorithmType(ARCPID_TYPE);
++    id.setPDG(delphesCand->ARCpid);
++    id.setLikelihood(delphesCand->ARCprobK);
++    for (const float v : {delphesCand->ARCprobPi, delphesCand->ARCprobK, delphesCand->ARCprobP, delphesCand->CherenkovRecoAngleGas,
++                          delphesCand->CherenkovRecoAngleAerogel, delphesCand->SigmaThetaCGas, delphesCand->SigmaThetaCAerogel,
++                          delphesCand->NpeGas, delphesCand->NpeAerogel, delphesCand->ARCmass}) {
++      id.addToParameters(v);
++    }
++#endif
+     id.setParticle(cand);
+ 
+     UInt_t genId = delphesCand->Particle.GetUniqueID();
+-- 
+2.52.0
+

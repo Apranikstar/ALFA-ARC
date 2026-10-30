@@ -1,0 +1,41 @@
+From d922b2b59bdd0cad3cc406787c24a1398d44bcd2 Mon Sep 17 00:00:00 2001
+From: hfatehi <trialoftheniku@gmail.com>
+Date: Fri, 30 Oct 2026 12:14:54 +0100
+Subject: [PATCH 8/8] examples/ALFA: C4F10 card with the C4F10 ARC radiation
+ length (delphes alfa-arc)
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01KP5vqAGH2XiGXWtPhaonke
+---
+ examples/ALFA/cards/delphes_card_ALFA_C4F10.tcl | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/examples/ALFA/cards/delphes_card_ALFA_C4F10.tcl b/examples/ALFA/cards/delphes_card_ALFA_C4F10.tcl
+index a8f02c0..244add2 100644
+--- a/examples/ALFA/cards/delphes_card_ALFA_C4F10.tcl
++++ b/examples/ALFA/cards/delphes_card_ALFA_C4F10.tcl
+@@ -273,8 +273,8 @@ module TrackCovariance TrackSmearing {
+       1 OTB -1.345 1.345 1.64 0.0001874 0.0937 2 0 1.5708 3e-06 3e-06 1
+       1 OTB -1.345 1.345 1.714 0.0002436 0.0937 2 0 1.5708 3e-06 3e-06 1
+       1 OTB -1.345 1.345 1.767 0.0002436 0.0937 2 0 1.5708 3e-06 3e-06 1
+-      # ARC barrel as passive material: 20 cm, 5.8% X0 at 90 deg (k4geo T04 material scan)
+-      1 ARCB -2.2 2.2 2 0.2 3.45 0 0 0 0 0 0
++      # ARC barrel as passive material: 20 cm, 4.2% X0 at 90 deg with C4F10 (k4geo T04 material scan)
++      1 ARCB -2.2 2.2 2 0.2 4.78 0 0 0 0 0 0
+       # outer tracker endcaps: 4 double disks per side (ALFA Delphes card, Jul 2026; engineering design in progress)
+       2 OTE 0.15 1.78 -2.045 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
+       2 OTE 0.15 1.78 -1.995 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
+@@ -293,8 +293,8 @@ module TrackCovariance TrackSmearing {
+       2 OTE 0.15 1.78 1.995 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
+       2 OTE 0.15 1.78 2.045 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
+       # ARC endcaps as passive material
+-      2 ARCE 0.28 1.9 -2.1 0.2 3.45 0 0 0 0 0 0
+-      2 ARCE 0.28 1.9 2.1 0.2 3.45 0 0 0 0 0 0
++      2 ARCE 0.28 1.9 -2.1 0.2 4.78 0 0 0 0 0 0
++      2 ARCE 0.28 1.9 2.1 0.2 4.78 0 0 0 0 0 0
+ 
+     }
+ 
+-- 
+2.52.0
+

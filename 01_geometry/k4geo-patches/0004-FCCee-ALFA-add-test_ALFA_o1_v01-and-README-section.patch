@@ -1,0 +1,61 @@
+From 57fb25425678cb43a3ef47a99b3038fd2f48fbe2 Mon Sep 17 00:00:00 2001
+From: hfatehi <trialoftheniku@gmail.com>
+Date: Thu, 29 Oct 2026 17:50:12 +0100
+Subject: [PATCH 4/5] FCCee/ALFA: add test_ALFA_o1_v01 and README section
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01KP5vqAGH2XiGXWtPhaonke
+---
+ FCCee/ALFA/compact/README.md | 21 ++++++++++++++++-----
+ test/CMakeLists.txt          |  6 ++++++
+ 2 files changed, 22 insertions(+), 5 deletions(-)
+
+diff --git a/FCCee/ALFA/compact/README.md b/FCCee/ALFA/compact/README.md
+index b4825643..02accd4c 100644
+--- a/FCCee/ALFA/compact/README.md
++++ b/FCCee/ALFA/compact/README.md
+@@ -15,8 +15,19 @@ Details can be found in [this report](https://indico.cern.ch/event/1683237/#4-si
+ DD4hep implementation summarized in [FullSim working meeting](https://indico.cern.ch/event/1739738/contributions/7323024/attachments/3366638/6041308/FCCFullSim_PR669_20261021.pdf). 
+ Note: segmentation is not matched with the quasi-pointing module geometry. 
+ 
+-
+-
+-
+-
+-
++## ALFA\_o1\_v01
++ALFA\_o1\_v00 plus the ARC (Array of RICH Cells) barrel and endcaps, between the outer tracker and the ECAL:
++- Driver ARC\_geo\_o1\_v01 (`ARC_o1_v01.xml`), cell optics from CLD\_o3\_v01 (`RadiatorCell_FinalOptimisation_o1_v01.xml`, referenced, not copied).
++Barrel r = 1900-2100 mm, length 4400 mm; endcaps r = 280-1900 mm at |z| = 2000-2200 mm; detector IDs 20 (barrel) and 21 (endcap).
++These are the CLD values the cell optics were optimised for; they match the ALFA design of 20 cm depth and ~27 cm cells.
++- Gas radiator: pressurised xenon (`Xenon_ARC` in `materials_arc_o1_v01.xml`) instead of C4F10, with a 1 cm aerogel radiator.
++Refractive index from the Sellmeier fit of A. Bideau-Mehu et al., JQSRT 25 (1981) 395, scaled with density.
++Pressure and temperature are the constants `ARC_XE_PRESSURE_BAR` (baseline 2 bar) and `ARC_XE_TEMPERATURE_K` (293.15 K) in `DectDimensions_ALFA_o1_v01.xml`.
++At 2 bar xenon has about the index of C4F10 at 1 bar, so the C4F10-optimised cells apply
++([ARC pre-demonstrator, ALFA meeting 16 Oct 2026](https://indico.cern.ch/event/1706792/contributions/7325148/attachments/3363970/6035756/ARC_pre_demonstrator.pdf)).
++- The ARC sensors' placeholder refractive index (needed by the optical tracker action, see `example/arcfullsim.py`) follows the xenon table.
++- ARC colours in `display.xml`.
++- Mirror reflectivity is the constant `ARC_MIRROR_REFLECTIVITY` (flat in energy; default 1.0 = ideal, 0.90 as a realistic placeholder).
++- Steering file `example/SteeringFile_ALFA_o1_v01_ARC.py` runs outer tracker, ARC (optical photons) and ECAL together with EDM4hep output.
++With `ARC_PDE_IN_SIM=1` in the environment, the `ARCPhotonDetectionFilter` plugin applies the SiPM photon detection efficiency (`ARC_SiPM_QuantumEfficiency`, FBK NUV-HD) in the simulation; otherwise every photon reaching a sensor makes a hit and the efficiency is applied in the analysis.
++- Known simplifications: 2 mm silicon sensors; the vessel is the CLD design, not checked for 2 bar; xenon in the aerogel pores is not modelled.
+diff --git a/test/CMakeLists.txt b/test/CMakeLists.txt
+index 01f7ca46..23a3ec49 100644
+--- a/test/CMakeLists.txt
++++ b/test/CMakeLists.txt
+@@ -188,6 +188,12 @@ add_ddsim_gun_test(${CMAKE_CURRENT_SOURCE_DIR}/../FCCee/ALLEGRO/compact/ALLEGRO_
+ add_ddsim_gun_test(${CMAKE_CURRENT_SOURCE_DIR}/../FCCee/ALFA/compact/ALFA_o1_v00/ALFA_o1_v00.xml
+     EXTRA_ARGS --gun.distribution uniform --gun.particle e- --steeringFile=${CMAKE_CURRENT_SOURCE_DIR}/../example/SteeringFile_ALFA_o1_v00.py)
+ 
++#--------------------------------------------------
++# Tests for ALFA_01_v01 (ALFA_o1_v00 + ARC with xenon radiator)
++#--------------------------------------------------
++add_ddsim_gun_test(${CMAKE_CURRENT_SOURCE_DIR}/../FCCee/ALFA/compact/ALFA_o1_v01/ALFA_o1_v01.xml
++    EXTRA_ARGS --gun.distribution uniform --gun.particle e- --steeringFile=${CMAKE_CURRENT_SOURCE_DIR}/../example/SteeringFile_ALFA_o1_v00.py)
++
+ #--------------------------------------------------
+ # Tests for MuonCollider geometries
+ #--------------------------------------------------
+-- 
+2.52.0
+

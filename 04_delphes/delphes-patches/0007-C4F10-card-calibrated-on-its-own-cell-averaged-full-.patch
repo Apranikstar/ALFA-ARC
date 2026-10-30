@@ -1,0 +1,247 @@
+From 034f4bc17891bf01f30b5b07de17721280b56652 Mon Sep 17 00:00:00 2001
+From: hfatehi <trialoftheniku@gmail.com>
+Date: Fri, 30 Oct 2026 01:35:07 +0100
+Subject: [PATCH 07/12] C4F10 card calibrated on its own cell-averaged full sim
+ (T06c); make_cards writes only the named cards
+
+The C4F10 card no longer reuses the Xe calibration with a 1.11 factor from two different
+standalone cells: N_sat, per-photon resolution, correlated term, yield scale, ring efficiency and
+bending coefficient come from the same theta-uniform, PDE-sampled full sim with C4F10 in the ALFA
+ARC. make_cards.py [Xe2bar] [C4F10] writes only the requested variants (the Xe card is unchanged).
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01KP5vqAGH2XiGXWtPhaonke
+---
+ cards/delphes_card_ALFA_C4F10.tcl | 93 +++++++++++++++----------------
+ examples/ALFA/make_cards.py       | 35 ++++++++----
+ 2 files changed, 70 insertions(+), 58 deletions(-)
+
+diff --git a/cards/delphes_card_ALFA_C4F10.tcl b/cards/delphes_card_ALFA_C4F10.tcl
+index c72f09a..0333f54 100644
+--- a/cards/delphes_card_ALFA_C4F10.tcl
++++ b/cards/delphes_card_ALFA_C4F10.tcl
+@@ -320,44 +320,43 @@ module ARCPID ARCPID {
+ 
+   ## gas radiator: C4F10 at 1 bar (k4geo C4F10_PFRICH table), for comparison with the July 2026 study. n and dn/dE at the
+   ## PDE-weighted mean detected photon energy <E> = 3.05 eV, sigma_E = rms of the detected spectrum (T11prep, standalone ARC cell).
+-  ## No C4F10 full-ALFA geometry exists: the theta dependence is the Xe one, the non-chromatic per-photon part x 1.11
+-  ## (standalone cell, PDE sampled: 1.94 vs 1.75 mrad); yield, correlated term and efficiency as Xe (same cells, 9.7 vs 9.8 photons).
++  ## calibrated on its own cell-averaged full sim (work/T06c: C4F10 in the ALFA ARC, PDE sampled).
+   set GasRefractiveIndex 1.001333
+   set GasDnDe 2.25E-5
+   set GasSigmaE 0.667
+   ## per-photon resolution without the chromatic part [rad] (pixel 1.25 (+) emission), cell-averaged full sim (T06b), smooth in the
+   ## cell off-axis variable; even-polynomial fits (s1^2 and s_c^2 in mrad^2, chromatic included in s1 and removed here; Y; E).
+   ## Residuals of the smooth forms around the cell-averaged points: s1 <= 2%, s_c 3-9%, Y and E <= 3.6% rms (systematic):
+-  ##   s1_barrel: even polynomial in x, c = 9.687, 10.62, -9.808 (chi2/ndf 1.06, x in [0.064, 0.963])
+-  ##   s1_endcap: even polynomial in x, c = 8.703, 6.007 (chi2/ndf 0.97, x in [0.237, 0.777])
+-  ##   sc_barrel: even polynomial in x, c = 0.5226, 2.588, -2.254 (chi2/ndf 0.27, x in [0.064, 0.963])
+-  ##   sc_endcap: even polynomial in x, c = 0.2339, 1.453 (chi2/ndf 1.50, x in [0.237, 0.777])
+-  ##   Y_barrel: even polynomial in x, c = 0.981, -1.274, 2.311, -1.276 (chi2/ndf 7.72, x in [0.064, 0.963])
+-  ##   Y_endcap: even polynomial in x, c = 1.013, -0.5319, 0.4176 (chi2/ndf 0.44, x in [0.237, 0.777])
+-  ##   E_barrel: even polynomial in x, c = 0.9929, -0.3013, 0.1644 (chi2/ndf 2.89, x in [0.064, 0.963])
+-  ##   E_endcap: even polynomial in x, c = 1.019, -0.3722 (chi2/ndf 2.44, x in [0.237, 0.777])
+-  set GasSigmaSingle 0.003336
++  ##   s1_barrel: even polynomial in x, c = 9.424, 8.533, -7.629 (chi2/ndf 2.35, x in [0.065, 0.962])
++  ##   s1_endcap: even polynomial in x, c = 8.455, 5.083 (chi2/ndf 0.74, x in [0.237, 0.777])
++  ##   sc_barrel: even polynomial in x, c = 0.4511, 3.213, -2.222 (chi2/ndf 0.80, x in [0.065, 0.962])
++  ##   sc_endcap: even polynomial in x, c = 0.1213, 1.173 (chi2/ndf 1.48, x in [0.237, 0.777])
++  ##   Y_barrel: even polynomial in x, c = 0.9894, -1.557, 3.142, -1.908 (chi2/ndf 2.56, x in [0.065, 0.962])
++  ##   Y_endcap: even polynomial in x, c = 1.063, -1.305, 3.123, -2.828 (chi2/ndf 1.14, x in [0.237, 0.777])
++  ##   E_barrel: even polynomial in x, c = 0.9965, -0.4042, 0.265 (chi2/ndf 4.43, x in [0.065, 0.962])
++  ##   E_endcap: even polynomial in x, c = 1.029, -0.445 (chi2/ndf 9.10, x in [0.237, 0.777])
++  set GasSigmaSingle 0.003056
+   set GasSigmaSingleFormula {
+-    (abs(eta) <= 0.9013) * (0.00111 * sqrt(TMath::Max(0.0, (9.68685) + (10.6206) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0637), 0.9627), 2) + (-9.8085) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0637), 0.9627), 4) - (0.6561)))) +
+-    (abs(eta) > 0.9013 && abs(eta) <= 1.0298) * (0.005502) +
+-    (abs(eta) > 1.0298) * (0.00111 * sqrt(TMath::Max(0.0, (8.70341) + (6.00713) * pow(TMath::Min(TMath::Max((1.0/sinh(abs(eta) + 1e-9)), 0.2373), 0.7765), 2) - (0.6561))))
++    (abs(eta) <= 0.9013) * (0.001 * sqrt(TMath::Max(0.0, (9.42389) + (8.53275) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0652), 0.9618), 2) + (-7.62855) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0652), 0.9618), 4) - (0.0841)))) +
++    (abs(eta) > 0.9013 && abs(eta) <= 1.0298) * (0.004986) +
++    (abs(eta) > 1.0298) * (0.001 * sqrt(TMath::Max(0.0, (8.45518) + (5.08255) * pow(TMath::Min(TMath::Max((1.0/sinh(abs(eta) + 1e-9)), 0.2371), 0.7769), 2) - (0.0841))))
+   }
+   ## per-track correlated term [rad] (does not average down with N_pe): cell-position-dependent bias of the optics
+   set GasSigmaCorrFormula {
+-    (abs(eta) <= 0.9013) * (0.001 * sqrt(TMath::Max(0.0, (0.522559) + (2.58791) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0637), 0.9627), 2) + (-2.2542) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0637), 0.9627), 4) - (0)))) +
+-    (abs(eta) > 0.9013 && abs(eta) <= 1.0298) * (0.001513) +
+-    (abs(eta) > 1.0298) * (0.001 * sqrt(TMath::Max(0.0, (0.233946) + (1.45306) * pow(TMath::Min(TMath::Max((1.0/sinh(abs(eta) + 1e-9)), 0.2373), 0.7765), 2) - (0))))
++    (abs(eta) <= 0.9013) * (0.001 * sqrt(TMath::Max(0.0, (0.451072) + (3.21338) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0652), 0.9618), 2) + (-2.2221) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0652), 0.9618), 4) - (0)))) +
++    (abs(eta) > 0.9013 && abs(eta) <= 1.0298) * (0.002097) +
++    (abs(eta) > 1.0298) * (0.001 * sqrt(TMath::Max(0.0, (0.121307) + (1.17337) * pow(TMath::Min(TMath::Max((1.0/sinh(abs(eta) + 1e-9)), 0.2371), 0.7769), 2) - (0))))
+   }
+   ## photons at beta = 1 for L = L_ref at normal incidence (cell-averaged); ideal mirror, x 0.90 for a 90% mirror (T07)
+-  set GasNsat 10.43
++  set GasNsat 10.24
+   set GasLref 0.15
+   ## gas crossed at normal incidence through the k4geo cells (T12 part A): 16.9 cm barrel, 16.7 cm endcap
+   set GasThickness 0.169
+   ## light collection relative to the path scaling N_sat L / L_ref (photons leave the cell at oblique incidence)
+   set GasYieldScaleFormula {
+-    (abs(eta) <= 0.9013) * (TMath::Max(0.0, (0.980987) + (-1.27425) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0637), 0.9627), 2) + (2.31081) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0637), 0.9627), 4) + (-1.27586) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0637), 0.9627), 6))) +
+-    (abs(eta) > 0.9013 && abs(eta) <= 1.0298) * (0.4963) +
+-    (abs(eta) > 1.0298) * (TMath::Max(0.0, (1.0131) + (-0.531886) * pow(TMath::Min(TMath::Max((1.0/sinh(abs(eta) + 1e-9)), 0.2373), 0.7765), 2) + (0.417578) * pow(TMath::Min(TMath::Max((1.0/sinh(abs(eta) + 1e-9)), 0.2373), 0.7765), 4)))
++    (abs(eta) <= 0.9013) * (TMath::Max(0.0, (0.989363) + (-1.55742) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0652), 0.9618), 2) + (3.14241) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0652), 0.9618), 4) + (-1.90762) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0652), 0.9618), 6))) +
++    (abs(eta) > 0.9013 && abs(eta) <= 1.0298) * (0.4915) +
++    (abs(eta) > 1.0298) * (TMath::Max(0.0, (1.06341) + (-1.30469) * pow(TMath::Min(TMath::Max((1.0/sinh(abs(eta) + 1e-9)), 0.2371), 0.7769), 2) + (3.12263) * pow(TMath::Min(TMath::Max((1.0/sinh(abs(eta) + 1e-9)), 0.2371), 0.7769), 4) + (-2.82755) * pow(TMath::Min(TMath::Max((1.0/sinh(abs(eta) + 1e-9)), 0.2371), 0.7769), 6)))
+   }
+ 
+   ## aerogel radiator: k4geo Aerogel_PFRICH (design value 1.03 not used by the full sim). n and dn/dE at the detected <E> = 3.0 eV,
+@@ -367,37 +366,37 @@ module ARCPID ARCPID {
+   set AerogelDnDe 7.9E-4
+   set AerogelSigmaE 0.655
+   ## per-photon resolution without the chromatic part [rad] (pixel 1.23 (+) emission); fits (mrad, chromatic included):
+-  ##   s1_barrel: even polynomial in x, c = 8.352, 3.638 (chi2/ndf 1.08, x in [0.064, 0.963])
+-  ##   s1_endcap: even polynomial in x, c = 8.406, 2.597 (chi2/ndf 3.59, x in [0.237, 0.777])
+-  ##   sc_barrel: even polynomial in x, c = 1.584, 9.535, 9.948 (chi2/ndf 5.76, x in [0.064, 0.963])
+-  ##   sc_endcap: even polynomial in x, c = 0.3133, 12.79 (chi2/ndf 3.20, x in [0.237, 0.777])
+-  ##   Y_barrel: even polynomial in x, c = 0.9819, 0.7645, -1.315, 0.6602 (chi2/ndf 0.94, x in [0.064, 0.963])
+-  ##   Y_endcap: even polynomial in x, c = 1.064, 0.2568, -0.6336 (chi2/ndf 1.56, x in [0.237, 0.777])
+-  ##   E_barrel: even polynomial in x, c = 0.9354, -0.3339, 0.3892 (chi2/ndf 12.22, x in [0.064, 0.963])
+-  ##   E_endcap: even polynomial in x, c = 0.9628, -0.121 (chi2/ndf 1.69, x in [0.237, 0.777])
+-  set AerogelSigmaSingle 0.001082
++  ##   s1_barrel: even polynomial in x, c = 8.318, 3.718 (chi2/ndf 3.33, x in [0.065, 0.962])
++  ##   s1_endcap: even polynomial in x, c = 7.644, 9.55, -10.12 (chi2/ndf 2.48, x in [0.237, 0.777])
++  ##   sc_barrel: even polynomial in x, c = 1.464, 9.21, 10.66 (chi2/ndf 4.55, x in [0.065, 0.962])
++  ##   sc_endcap: even polynomial in x, c = 0.2955, 13.26 (chi2/ndf 1.28, x in [0.237, 0.777])
++  ##   Y_barrel: even polynomial in x, c = 0.9731, 0.4414, -0.4633 (chi2/ndf 3.23, x in [0.065, 0.962])
++  ##   Y_endcap: even polynomial in x, c = 0.9451, 0.689, -1.218 (chi2/ndf 3.42, x in [0.237, 0.777])
++  ##   E_barrel: even polynomial in x, c = 0.9474, -0.3253, 0.3676 (chi2/ndf 5.26, x in [0.065, 0.962])
++  ##   E_endcap: even polynomial in x, c = 0.9632, -0.152 (chi2/ndf 1.70, x in [0.237, 0.777])
++  set AerogelSigmaSingle 0.001066
+   set AerogelSigmaSingleFormula {
+-    (abs(eta) <= 0.9013) * (0.001 * sqrt(TMath::Max(0.0, (8.35225) + (3.63775) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0637), 0.9627), 2) - (7.1824)))) +
+-    (abs(eta) > 0.9013 && abs(eta) <= 1.0298) * (0.001545) +
+-    (abs(eta) > 1.0298) * (0.001 * sqrt(TMath::Max(0.0, (8.40626) + (2.59701) * pow(TMath::Min(TMath::Max((1.0/sinh(abs(eta) + 1e-9)), 0.2373), 0.7765), 2) - (7.1824))))
++    (abs(eta) <= 0.9013) * (0.001 * sqrt(TMath::Max(0.0, (8.31823) + (3.71817) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0652), 0.9618), 2) - (7.1824)))) +
++    (abs(eta) > 0.9013 && abs(eta) <= 1.0298) * (0.001493) +
++    (abs(eta) > 1.0298) * (0.001 * sqrt(TMath::Max(0.0, (7.64374) + (9.55035) * pow(TMath::Min(TMath::Max((1.0/sinh(abs(eta) + 1e-9)), 0.2371), 0.7769), 2) + (-10.1174) * pow(TMath::Min(TMath::Max((1.0/sinh(abs(eta) + 1e-9)), 0.2371), 0.7769), 4) - (7.1824))))
+   }
+   set AerogelSigmaCorrFormula {
+-    (abs(eta) <= 0.9013) * (0.001 * sqrt(TMath::Max(0.0, (1.58429) + (9.53458) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0637), 0.9627), 2) + (9.94849) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0637), 0.9627), 4) - (0)))) +
+-    (abs(eta) > 0.9013 && abs(eta) <= 1.0298) * (0.003702) +
+-    (abs(eta) > 1.0298) * (0.001 * sqrt(TMath::Max(0.0, (0.313326) + (12.7915) * pow(TMath::Min(TMath::Max((1.0/sinh(abs(eta) + 1e-9)), 0.2373), 0.7765), 2) - (0))))
++    (abs(eta) <= 0.9013) * (0.001 * sqrt(TMath::Max(0.0, (1.46379) + (9.20963) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0652), 0.9618), 2) + (10.6606) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0652), 0.9618), 4) - (0)))) +
++    (abs(eta) > 0.9013 && abs(eta) <= 1.0298) * (0.003881) +
++    (abs(eta) > 1.0298) * (0.001 * sqrt(TMath::Max(0.0, (0.295488) + (13.258) * pow(TMath::Min(TMath::Max((1.0/sinh(abs(eta) + 1e-9)), 0.2371), 0.7769), 2) - (0))))
+   }
+-  set AerogelNsat 6.94
++  set AerogelNsat 7.14
+   set AerogelLref 0.01
+   set AerogelThickness 0.0098
+   set AerogelYieldScaleFormula {
+-    (abs(eta) <= 0.9013) * (TMath::Max(0.0, (0.98185) + (0.764474) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0637), 0.9627), 2) + (-1.31534) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0637), 0.9627), 4) + (0.660188) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0637), 0.9627), 6))) +
+-    (abs(eta) > 0.9013 && abs(eta) <= 1.0298) * (0.7548) +
+-    (abs(eta) > 1.0298) * (TMath::Max(0.0, (1.06379) + (0.25676) * pow(TMath::Min(TMath::Max((1.0/sinh(abs(eta) + 1e-9)), 0.2373), 0.7765), 2) + (-0.633595) * pow(TMath::Min(TMath::Max((1.0/sinh(abs(eta) + 1e-9)), 0.2373), 0.7765), 4)))
++    (abs(eta) <= 0.9013) * (TMath::Max(0.0, (0.973073) + (0.441369) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0652), 0.9618), 2) + (-0.463303) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0652), 0.9618), 4))) +
++    (abs(eta) > 0.9013 && abs(eta) <= 1.0298) * (0.6752) +
++    (abs(eta) > 1.0298) * (TMath::Max(0.0, (0.945113) + (0.688964) * pow(TMath::Min(TMath::Max((1.0/sinh(abs(eta) + 1e-9)), 0.2371), 0.7769), 2) + (-1.21823) * pow(TMath::Min(TMath::Max((1.0/sinh(abs(eta) + 1e-9)), 0.2371), 0.7769), 4)))
+   }
+ 
+   ## per-photon spread from the track curving across the radiator: sigma_bend = BendingCoefficient * 0.3 * B * L * sin(theta) / p,
+   ## weighted mean of the per-bin gas fits (T06b); the T06 reconstruction already corrects for the helix, so k < 1/sqrt(12)
+-  set BendingCoefficient 0.155
++  set BendingCoefficient 0.152
+ 
+   ## a ring needs at least MinPe detected photons (as in the T06 reconstruction); the yield fluctuates per track (Poisson)
+   set MinPe 3.0
+@@ -407,14 +406,14 @@ module ARCPID ARCPID {
+ 
+   ## ring-finding efficiency (ring lost: cell edge, mirror gap; < 3 photons is handled by MinPe), cell-averaged
+   set GasEfficiencyFormula {
+-    (abs(eta) <= 0.9013) * (TMath::Max(0.0, TMath::Min(1.0, (0.992905) + (-0.301298) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0637), 0.9627), 2) + (0.164372) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0637), 0.9627), 4)))) +
+-    (abs(eta) > 0.9013 && abs(eta) <= 1.0298) * (0.123) +
+-    (abs(eta) > 1.0298) * (TMath::Max(0.0, TMath::Min(1.0, (1.01939) + (-0.372212) * pow(TMath::Min(TMath::Max((1.0/sinh(abs(eta) + 1e-9)), 0.2373), 0.7765), 2))))
++    (abs(eta) <= 0.9013) * (TMath::Max(0.0, TMath::Min(1.0, (0.996478) + (-0.404233) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0652), 0.9618), 2) + (0.26502) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0652), 0.9618), 4)))) +
++    (abs(eta) > 0.9013 && abs(eta) <= 1.0298) * (0.08889) +
++    (abs(eta) > 1.0298) * (TMath::Max(0.0, TMath::Min(1.0, (1.02932) + (-0.445019) * pow(TMath::Min(TMath::Max((1.0/sinh(abs(eta) + 1e-9)), 0.2371), 0.7769), 2))))
+   }
+   set AerogelEfficiencyFormula {
+-    (abs(eta) <= 0.9013) * (TMath::Max(0.0, TMath::Min(1.0, (0.935369) + (-0.333916) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0637), 0.9627), 2) + (0.389179) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0637), 0.9627), 4)))) +
+-    (abs(eta) > 0.9013 && abs(eta) <= 1.0298) * (0.1865) +
+-    (abs(eta) > 1.0298) * (TMath::Max(0.0, TMath::Min(1.0, (0.962775) + (-0.121011) * pow(TMath::Min(TMath::Max((1.0/sinh(abs(eta) + 1e-9)), 0.2373), 0.7765), 2))))
++    (abs(eta) <= 0.9013) * (TMath::Max(0.0, TMath::Min(1.0, (0.947423) + (-0.325302) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0652), 0.9618), 2) + (0.367565) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0652), 0.9618), 4)))) +
++    (abs(eta) > 0.9013 && abs(eta) <= 1.0298) * (0.149) +
++    (abs(eta) > 1.0298) * (TMath::Max(0.0, TMath::Min(1.0, (0.963182) + (-0.151971) * pow(TMath::Min(TMath::Max((1.0/sinh(abs(eta) + 1e-9)), 0.2371), 0.7769), 2))))
+   }
+ }
+ 
+diff --git a/examples/ALFA/make_cards.py b/examples/ALFA/make_cards.py
+index f8bd1b5..b6f90ca 100644
+--- a/examples/ALFA/make_cards.py
++++ b/examples/ALFA/make_cards.py
+@@ -9,11 +9,16 @@ Calibration v3 is physical:
+     the formula below is the rest (pixel (+) emission); a per-track correlated term (does not average down with N_pe);
+   - smooth functions of the cell off-axis variable x = cot(theta) = sinh|eta| (barrel) or tan(theta) = 1/sinh|eta| (endcap),
+     and measured constants in the barrel-endcap gap (theta 39.3-44.2 deg: no endcap cells beyond r = 1.7 m).
+-Usage: python3 examples/ALFA/make_cards.py"""
++Usage: python3 examples/ALFA/make_cards.py [Xe2bar] [C4F10]   (default both; only the named cards are written)
++Calibration per gas: Xe2bar from work/T06b, C4F10 from work/T06c (the same cell-averaged full sim with C4F10 in the ALFA ARC);
++without the T06c calibration the C4F10 card falls back to the Xe calibration x 1.11 on the non-chromatic part."""
++import os
++import sys
+ import json
+ import math
+ 
+-CAL = json.load(open("/eos/user/h/hfatehi/alfa/work/T06b/calib_t06b.json"))
++CALIB = {"Xe2bar": "/eos/user/h/hfatehi/alfa/work/T06b/calib_t06b.json", "C4F10": "/eos/user/h/hfatehi/alfa/work/T06c/calib_t06b.json"}
++CAL = json.load(open(CALIB["Xe2bar"]))
+ ETA_B = -math.log(math.tan(math.radians(44.2) / 2))   # last barrel cell edge
+ ETA_E = -math.log(math.tan(math.radians(39.3) / 2))   # outer edge of the endcap cells
+ CHROM0 = {"gas": {"Xe2bar": 0.81, "C4F10": 0.29}, "aerogel": 2.68}  # chromatic term at beta = 1 [mrad], computed by ARCPID itself
+@@ -72,9 +77,11 @@ def fits_comment(rad):
+     return "\n".join(lines)
+ 
+ 
+-ks = [q["k"] for q in CAL["gas"]["points"] if q.get("k") and q.get("ke") and q["region"] != "gap"]
+-kw = [1 / q["ke"] ** 2 for q in CAL["gas"]["points"] if q.get("k") and q.get("ke") and q["region"] != "gap"]
+-K_BEND = sum(k * w for k, w in zip(ks, kw)) / sum(kw)
++def bending():
++    ks = [q["k"] for q in CAL["gas"]["points"] if q.get("k") and q.get("ke") and q["region"] != "gap"]
++    kw = [1 / q["ke"] ** 2 for q in CAL["gas"]["points"] if q.get("k") and q.get("ke") and q["region"] != "gap"]
++    return sum(k * w for k, w in zip(ks, kw)) / sum(kw)
++
+ 
+ src = open("cards/delphes_card_ALFA.tcl").read()
+ i = src.index("  ## gas radiator:"); j = src.index("\n", src.index("set AerogelEfficiencyFormula")) + 1
+@@ -87,20 +94,23 @@ GAS_HDR = {
+ """,
+  "C4F10": f"""  ## gas radiator: C4F10 at 1 bar (k4geo C4F10_PFRICH table), for comparison with the July 2026 study. n and dn/dE at the
+   ## PDE-weighted mean detected photon energy <E> = 3.05 eV, sigma_E = rms of the detected spectrum (T11prep, standalone ARC cell).
+-  ## No C4F10 full-ALFA geometry exists: the theta dependence is the Xe one, the non-chromatic per-photon part x {C4F10_NONCHROM}
+-  ## (standalone cell, PDE sampled: 1.94 vs 1.75 mrad); yield, correlated term and efficiency as Xe (same cells, 9.7 vs 9.8 photons).
++  ## @C4F10_CALIB@
+   set GasRefractiveIndex 1.001333
+   set GasDnDe 2.25E-5
+   set GasSigmaE 0.667
+ """}
+-for v in ("Xe2bar", "C4F10"):
+-    cg = CHROM0["gas"]["Xe2bar"]  # the fits are Xe: remove the Xe chromatic part, ARCPID adds the card gas's own
++for v in (sys.argv[1:] or ["Xe2bar", "C4F10"]):
++    own = os.path.exists(CALIB[v])
++    CAL = json.load(open(CALIB[v] if own else CALIB["Xe2bar"]))
++    K_BEND = bending()
++    cg = CHROM0["gas"][v if own else "Xe2bar"]  # remove the chromatic part of the calibrated gas, ARCPID adds the card gas's own
++    scale_nc = 1.0 if (own or v == "Xe2bar") else C4F10_NONCHROM
+     block = GAS_HDR[v] + f"""  ## per-photon resolution without the chromatic part [rad] (pixel 1.25 (+) emission), cell-averaged full sim (T06b), smooth in the
+   ## cell off-axis variable; even-polynomial fits (s1^2 and s_c^2 in mrad^2, chromatic included in s1 and removed here; Y; E).
+   ## Residuals of the smooth forms around the cell-averaged points: s1 <= 2%, s_c 3-9%, Y and E <= 3.6% rms (systematic):
+ {fits_comment("gas")}
+-  set GasSigmaSingle {1e-3 * math.sqrt(max(CAL['gas']['fits']['s1_barrel']['p'][0] - cg ** 2, 0)) * (C4F10_NONCHROM if v == 'C4F10' else 1):.4g}
+-  set GasSigmaSingleFormula {quad("gas", "s1", sub2=cg * cg, scale=C4F10_NONCHROM if v == "C4F10" else 1.0)}
++  set GasSigmaSingle {1e-3 * math.sqrt(max(CAL['gas']['fits']['s1_barrel']['p'][0] - cg ** 2, 0)) * scale_nc:.4g}
++  set GasSigmaSingleFormula {quad("gas", "s1", sub2=cg * cg, scale=scale_nc)}
+   ## per-track correlated term [rad] (does not average down with N_pe): cell-position-dependent bias of the optics
+   set GasSigmaCorrFormula {quad("gas", "sc")}
+   ## photons at beta = 1 for L = L_ref at normal incidence (cell-averaged); ideal mirror, x 0.90 for a 90% mirror (T07)
+@@ -141,6 +151,9 @@ for v in ("Xe2bar", "C4F10"):
+   set GasEfficiencyFormula {efficiency("gas")}
+   set AerogelEfficiencyFormula {efficiency("aerogel")}
+ """
++    note = ("calibrated on its own cell-averaged full sim (work/T06c: C4F10 in the ALFA ARC, PDE sampled)." if own else
++            f"no C4F10 full sim yet: Xe calibration, non-chromatic part x {C4F10_NONCHROM} (two standalone cells).")
++    block = block.replace("@C4F10_CALIB@", note)
+     out = src[:i] + block + src[j:]
+     out = f"# ALFA Delphes card, ARC gas variant: {v} (generated by examples/ALFA/make_cards.py from delphes_card_ALFA.tcl, calibration v3)\n" + out
+     open(f"cards/delphes_card_ALFA_{v}.tcl", "w").write(out)
+-- 
+2.52.0
+

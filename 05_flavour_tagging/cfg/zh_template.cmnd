@@ -1,0 +1,16 @@
+! e+e- -> ZH at 240 GeV, Z -> nu nubar, H -> @DECAY@ (T14 jet-flavour samples)
+Main:numberOfEvents = @NEV@
+Beams:idA = 11
+Beams:idB = -11
+Beams:eCM = 240.
+PDF:lepton = off
+HiggsSM:ffbar2HZ = on
+25:m0 = 125.0
+23:onMode = off
+23:onIfAny = 12 14 16
+25:onMode = off
+@HDECAY@
+Random:setSeed = on
+Random:seed = @SEED@
+Next:numberCount = 5000
+Next:numberShowEvent = 0

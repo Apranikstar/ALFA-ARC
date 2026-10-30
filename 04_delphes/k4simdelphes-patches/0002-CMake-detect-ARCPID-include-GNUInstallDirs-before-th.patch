@@ -1,0 +1,52 @@
+From 3f3dc6706a36e1de56e2d531fada595cfe821d39 Mon Sep 17 00:00:00 2001
+From: hfatehi <trialoftheniku@gmail.com>
+Date: Fri, 30 Oct 2026 02:58:27 +0100
+Subject: [PATCH 2/8] CMake: detect ARCPID; include GNUInstallDirs before the
+ install RPATH is set
+
+key4hep_set_rpath runs when cmake/Key4hepConfig.cmake is included and builds the install RPATH
+from CMAKE_INSTALL_LIBDIR, which was not yet defined: the RPATH pointed to <prefix>/lib while the
+libraries are installed to <prefix>/lib64 on EL9, so the converter library of the key4hep stack was
+loaded instead of the one just built. Also add the K4SIMDELPHES_HAS_ARCPID definition when the
+Delphes headers contain the ARCPID members.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01KP5vqAGH2XiGXWtPhaonke
+---
+ CMakeLists.txt | 10 +++++++++-
+ 1 file changed, 9 insertions(+), 1 deletion(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 5f17837..075db32 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -19,10 +19,12 @@ SET( ${PROJECT_NAME}_VERSION_PATCH 0 )
+ SET( ${PROJECT_NAME}_VERSION
+   "${${PROJECT_NAME}_VERSION_MAJOR}.${${PROJECT_NAME}_VERSION_MINOR}.${${PROJECT_NAME}_VERSION_PATCH}" )
+ 
++# GNUInstallDirs first: Key4hepConfig sets the install RPATH from CMAKE_INSTALL_LIBDIR (lib64 on EL9)
++include(GNUInstallDirs)
+ include(cmake/Key4hepConfig.cmake)
+ 
+ #-- Use GNU-style hierarchy for installing build products ----------------------
+-include(GNUInstallDirs)
++
+ 
+ #--- add version files ---------------------------------------------------------
+ configure_file(${PROJECT_SOURCE_DIR}/k4SimDelphesVersion.h
+@@ -56,6 +58,12 @@ find_package(ROOT REQUIRED)
+ # Detect whether Delphes uses ReadEvent (new) or ReadBlock (old)
+ # ReadEvent was introduced in Delphes 3.5.2pre01.
+ # Delphes doesn't export a version so checking for the existence of ReadEvent is the only way to detect this.
++# ALFA: a Delphes with the ARCPID module has the ARC members on Track; write them to the EFlowTrack_PID collection
++file(STRINGS "${DELPHES_INCLUDE_DIR}/classes/DelphesClasses.h" DELPHES_ARCPID_LINE REGEX "ARCprobK")
++if(DELPHES_ARCPID_LINE)
++  message(STATUS "Delphes has ARCPID: EFlowTrack_PID filled with the ARC hypotheses")
++  add_compile_definitions(K4SIMDELPHES_HAS_ARCPID)
++endif()
+ file(STRINGS "${DELPHES_INCLUDE_DIR}/classes/DelphesHepMC2Reader.h"
+      _delphes_hepmcreader_content REGEX "ReadEvent")
+ if(_delphes_hepmcreader_content)
+-- 
+2.52.0
+

@@ -1,0 +1,70 @@
+From d052fde44e2654d9cd9432830c8919bb8bd8d486 Mon Sep 17 00:00:00 2001
+From: hfatehi <trialoftheniku@gmail.com>
+Date: Thu, 29 Oct 2026 18:21:16 +0100
+Subject: [PATCH 5/5] FCCee/ALFA: make the ARC optical absorption lengths take
+ effect in ALFA_o1_v01
+
+Same fix as for CLD_o3_v01 on arc-fixes: the inline ABSLENGTH properties of
+AirOptical, SiliconOptical and VacuumOptical were not applied by DD4hep;
+define them as named matrices.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01KP5vqAGH2XiGXWtPhaonke
+---
+ .../ALFA_o1_v01/materials_arc_o1_v01.xml      | 20 ++++++++++++++++---
+ 1 file changed, 17 insertions(+), 3 deletions(-)
+
+diff --git a/FCCee/ALFA/compact/ALFA_o1_v01/materials_arc_o1_v01.xml b/FCCee/ALFA/compact/ALFA_o1_v01/materials_arc_o1_v01.xml
+index ffc5a7c0..36eff0ab 100644
+--- a/FCCee/ALFA/compact/ALFA_o1_v01/materials_arc_o1_v01.xml
++++ b/FCCee/ALFA/compact/ALFA_o1_v01/materials_arc_o1_v01.xml
+@@ -418,6 +418,20 @@
+       8.36529*eV  0.166779*mm
+       8.45347*eV  0.166779*mm
+       "/>
++    <!-- Absorption lengths of the optical helper materials as named matrices: inline <property coldim values> on
++         materials is not applied by DD4hep (same fix as on the arc-fixes branch for CLD_o3_v01). -->
++    <matrix name="ABSLENGTH__AirOptical" coldim="2" values="
++      1*eV  200*m
++      5*eV  200*m
++      "/>
++    <matrix name="ABSLENGTH__SiliconOptical" coldim="2" values="
++      1*eV  0.1*mm
++      5*eV  0.1*mm
++      "/>
++    <matrix name="ABSLENGTH__VacuumOptical" coldim="2" values="
++      1*eV  2000*m
++      5*eV  2000*m
++      "/>
+   </properties>
+ 
+   <materials>
+@@ -427,14 +441,14 @@
+       <fraction n="0.234" ref="O"/>
+       <fraction n="0.012" ref="Ar"/>
+       <property name="RINDEX" ref="RINDEX__Air"/>
+-      <property name="ABSLENGTH" coldim="2" values="1*eV  200*m  5*eV  200*m"/>
++      <property name="ABSLENGTH" ref="ABSLENGTH__AirOptical"/>
+     </material>
+     <material name="SiliconOptical">
+       <D type="density" unit="g/cm3" value="2.3"/>
+       <fraction n="1.0" ref="Si"/>
+       <comment> ALFA: fake RINDEX matched to the xenon radiator (see example/arcfullsim.py on BoundaryInvokeSD) </comment>
+       <property name="RINDEX"    ref="RINDEX__Xenon_ARC"/>
+-      <property name="ABSLENGTH" coldim="2" values="1*eV  0.1*mm  5*eV  0.1*mm"/>
++      <property name="ABSLENGTH" ref="ABSLENGTH__SiliconOptical"/>
+     </material>
+     <material name="VacuumOptical">
+       <D type="density" unit="g/cm3" value="0.0000000001"/>
+@@ -442,7 +456,7 @@
+       <fraction n="0.234" ref="O"/>
+       <fraction n="0.012" ref="Ar"/>
+       <property name="RINDEX" ref="RINDEX__Vacuum"/>
+-      <property name="ABSLENGTH" coldim="2" values="1*eV  2000*m  5*eV  2000*m"/>
++      <property name="ABSLENGTH" ref="ABSLENGTH__VacuumOptical"/>
+     </material>
+     <material name="SiliconDioxide"> <!-- density from `G4_SILICON_DIOXIDE` (NIST DB) -->
+       <D type="density" value="2.32" unit="g/cm3"/>
+-- 
+2.52.0
+

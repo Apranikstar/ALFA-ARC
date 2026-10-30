@@ -1,0 +1,2631 @@
+From 4f0c011a5e07cc201b734a0de5666721d727a3e0 Mon Sep 17 00:00:00 2001
+From: hfatehi <trialoftheniku@gmail.com>
+Date: Thu, 29 Oct 2026 17:50:11 +0100
+Subject: [PATCH 1/5] FCCee/ALFA: add ALFA_o1_v01 with ARC barrel and endcaps
+
+ALFA_o1_v00 plus the ARC (ARC_geo_o1_v01 driver) between the outer tracker
+and the ECAL: barrel r 1900-2100 mm over 4400 mm, endcaps r 280-1900 mm at
+|z| 2000-2200 mm, detector IDs 20/21. Cell optics are referenced from
+CLD_o3_v01. The gas radiator is pressurised xenon (Xenon_ARC, 2 bar baseline,
+Bideau-Mehu 1981 dispersion scaled with density); the mirror reflectivity is
+a constant. ARC colours added to display.xml.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01KP5vqAGH2XiGXWtPhaonke
+---
+ .../ALFA/compact/ALFA_o1_v01/ALFA_o1_v01.xml  |  89 ++
+ FCCee/ALFA/compact/ALFA_o1_v01/ARC_o1_v01.xml | 131 +++
+ .../DectDimensions_ALFA_o1_v01.xml            |  59 ++
+ .../Grainita_ECAL_Barrel_o1_v02.xml           |  80 ++
+ FCCee/ALFA/compact/ALFA_o1_v01/MDI_params.xml |  48 +
+ .../ALFA_o1_v01/OuterTrackerBarrel_o1_v00.xml | 346 +++++++
+ .../ALFA_o1_v01/OuterTracker_module.xml       |  18 +
+ FCCee/ALFA/compact/ALFA_o1_v01/display.xml    |  74 ++
+ FCCee/ALFA/compact/ALFA_o1_v01/elements.xml   | 884 ++++++++++++++++++
+ FCCee/ALFA/compact/ALFA_o1_v01/materials.xml  | 248 +++++
+ .../ALFA_o1_v01/materials_arc_o1_v01.xml      | 546 +++++++++++
+ 11 files changed, 2523 insertions(+)
+ create mode 100644 FCCee/ALFA/compact/ALFA_o1_v01/ALFA_o1_v01.xml
+ create mode 100644 FCCee/ALFA/compact/ALFA_o1_v01/ARC_o1_v01.xml
+ create mode 100644 FCCee/ALFA/compact/ALFA_o1_v01/DectDimensions_ALFA_o1_v01.xml
+ create mode 100644 FCCee/ALFA/compact/ALFA_o1_v01/Grainita_ECAL_Barrel_o1_v02.xml
+ create mode 100644 FCCee/ALFA/compact/ALFA_o1_v01/MDI_params.xml
+ create mode 100644 FCCee/ALFA/compact/ALFA_o1_v01/OuterTrackerBarrel_o1_v00.xml
+ create mode 100644 FCCee/ALFA/compact/ALFA_o1_v01/OuterTracker_module.xml
+ create mode 100644 FCCee/ALFA/compact/ALFA_o1_v01/display.xml
+ create mode 100644 FCCee/ALFA/compact/ALFA_o1_v01/elements.xml
+ create mode 100644 FCCee/ALFA/compact/ALFA_o1_v01/materials.xml
+ create mode 100644 FCCee/ALFA/compact/ALFA_o1_v01/materials_arc_o1_v01.xml
+
+diff --git a/FCCee/ALFA/compact/ALFA_o1_v01/ALFA_o1_v01.xml b/FCCee/ALFA/compact/ALFA_o1_v01/ALFA_o1_v01.xml
+new file mode 100644
+index 00000000..d162ae06
+--- /dev/null
++++ b/FCCee/ALFA/compact/ALFA_o1_v01/ALFA_o1_v01.xml
+@@ -0,0 +1,89 @@
++<lccdd>
++
++  <info name="ALFA_o1_v01"
++    title="Master file for the ALFA detector concept"
++    author="Various, Tracker by E.Ploerer, Grainita ECAL by F.Guo, ARC from CLD_o3_v01 (A. Tolosa-Delgado et al.)"
++    url="no"
++    status="development"
++    version="o1_v01">
++    <comment>
++      Based on IDEA master file.
++      Tracker corresponds to BAR354_EC353_VTX108 Delphes card.
++      o1_v01: ALFA_o1_v00 + ARC barrel and endcaps (ARC_geo_o1_v01 driver) with a pressurised xenon gas radiator.
++    </comment>
++  </info>
++
++  <include ref="${DD4hepINSTALL}/DDDetectors/compact/detector_types.xml" />
++
++  <comment> Material definitions </comment>
++  <includes>
++    <gdmlFile  ref="elements.xml"/>
++    <gdmlFile  ref="materials.xml"/>
++  </includes>
++
++  <comment> World dimensions </comment>
++  <define>
++    <constant name="world_side"   value="20.0*m"/>
++    <constant name="world_x"      value="world_side / 2.0"/>
++    <constant name="world_y"      value="world_side / 2.0"/>
++    <constant name="world_z"      value="world_side / 2.0"/>
++  </define>
++
++  <comment> Global detector dimensions </comment>
++  <include ref="DectDimensions_ALFA_o1_v01.xml" />
++  <include ref="display.xml" />
++
++
++  <comment> Tracker bitfield </comment>
++  <define>
++    <constant name="GlobalTrackerReadoutID" type="string" value="system:8,side:-2,layer:5,module:13,sensor:7"/>
++    <comment> Silicon barrel tracker has 5 (VTX) + 6*4 (OT) layers => min 5 bits. Silicon OT final layer has 112 * 2 * 21 modules / n ("layers" / physical double layer) => min 13 bits. Assume vertex barrel 60 pixel matrices per module (IDEA) => min 6 bits. </comment>
++  </define>
++
++
++  <comment> Shape-based beam pipe </comment>
++  <include ref="MDI_params.xml" />
++  <include ref="../../../MDI/compact/MDI_o1_v00/Beampipe_o4_v05.xml" />
++  <include ref="../../../MDI/compact/MDI_o1_v00/BeamInstrumentation_o1_v01.xml" />
++
++  <comment> Sub-detector definitions </comment>
++
++  <comment> Outer Tracker (OT) Barrel  </comment>
++  <include ref="OuterTrackerBarrel_o1_v00.xml" />
++
++  <comment> ARC: Array of RICH Cells (aerogel + pressurised xenon), between OT and ECAL </comment>
++  <include ref="ARC_o1_v01.xml" />
++
++  <comment> Grainita ECAL </comment>
++  <include ref="Grainita_ECAL_Barrel_o1_v02.xml" /> 
++
++  <comment> Include plugin to generate edm4hep::TrackerHitPlane </comment>
++  <plugins>
++    <plugin name="DD4hepVolumeManager"/>
++    <plugin name="InstallSurfaceManager"/>
++  </plugins>
++
++  <comment> Magnetic field constants </comment>
++  <define>
++    <constant name="Solenoid_inner_field"   value="3.0*tesla"/>
++    <constant name="Solenoid_outer_field"   value="-1.0*tesla"/>
++  </define>
++
++  <comment> Magnetic field definition </comment>
++  <comment> Assume constant field for lt inner field and lt outer field (beyond coil) </comment>
++  <fields>
++    <field name="Solenoid" type="solenoid"
++      inner_field="Solenoid_inner_field"
++      outer_field="Solenoid_outer_field"
++      zmax="1.2 * Solenoid_coil_half_length"
++      outer_radius="Solenoid_coil_outer_radius">
++    </field>
++  </fields>
++
++
++
++
++
++
++
++</lccdd>
+diff --git a/FCCee/ALFA/compact/ALFA_o1_v01/ARC_o1_v01.xml b/FCCee/ALFA/compact/ALFA_o1_v01/ARC_o1_v01.xml
+new file mode 100644
+index 00000000..3705983d
+--- /dev/null
++++ b/FCCee/ALFA/compact/ALFA_o1_v01/ARC_o1_v01.xml
+@@ -0,0 +1,131 @@
++<lccdd >
++
++<includes>
++  <gdmlFile ref="materials_arc_o1_v01.xml"/>
++  <gdmlFile ref="../../../CLD/compact/CLD_o3_v01/RadiatorCell_FinalOptimisation_o1_v01.xml"/>
++</includes>
++
++<define>
++  <!-- ARC properties -->
++  <constant name="ARC_VESSEL_WALL_THICKNESS"  value="1.0*cm"    />
++  <constant name="ARC_MIRROR_THICKNESS"       value="0.2*cm"    />
++  <constant name="ARC_COOLING_THICKNESS"      value="0.2*cm"    />
++  <constant name="ARC_AEROGEL_THICKNESS"      value="1.0*cm"    />
++  <!-- ARC sensor properties -->
++  <constant name="ARC_SENSOR_THICKNESS"       value="0.2*cm"    />
++  <constant name="ARC_SENSOR_X"               value="8.0*cm"    />
++  <constant name="ARC_SENSOR_Y"               value="8.0*cm"    />
++  <constant name="ARC_SENSOR_NStripsX"        value="100"       />
++  <constant name="ARC_SENSOR_NStripsY"        value="100"       />
++  <constant name="ARC_SENSOR_pitchX"          value="0.08*cm"   />
++  <constant name="ARC_SENSOR_pitchY"          value="0.08*cm"   />
++</define>
++
++<detectors>
++  <detector
++    id="DetID_ARCBARREL"
++    name="ARCBARREL"
++    type="ARCBARREL_o1_v01_T"
++    readout="ArcCollection"
++    >
++  <!-- /detectors/detector/vessel -->
++  <vessel
++      skinMaterial="CarbonFibStr"
++      skin_vis="arc_vessel_vis"
++      bulk_material="Rohacell300WP"
++      bulk_vis="arc_vessel_bulk_vis"
++      bulk_skin_ratio = "0.8"
++    >
++  </vessel>
++  <!-- /detectors/detector/radiatorgas -->
++  <!-- ALFA: pressurised xenon radiator (Xenon_ARC, materials_arc_o1_v01.xml) -->
++  <radiatorgas
++      material="Xenon_ARC"
++      vis="arc_gas_vis"
++    >
++  </radiatorgas>
++  <!-- /detectors/detector/radiatoraerogel -->
++  <radiatoraerogel
++      material="Aerogel_PFRICH"
++      vis="arc_aerogel_vis"
++    >
++  </radiatoraerogel>
++  <!-- /detectors/detector/sensors -->
++  <sensors
++      material="SiliconOptical"
++      vis="arc_sensor_vis"
++      sensor_side_Z="ARC_SENSOR_Y"
++      sensor_side_Phi="ARC_SENSOR_X"
++      thickness="ARC_SENSOR_THICKNESS"
++      >
++  </sensors>
++  <!-- /detectors/detector/mirror -->
++  <mirror
++      material="CarbonFibStr"
++      thickness="ARC_MIRROR_THICKNESS"
++      surface="ARC_MirrorSurface"
++      >
++  </mirror>
++  </detector>
++  <detector
++    id="DetID_ARCENDCAP"
++    name="ARCENDCAP"
++    type="ARCENDCAP_o1_v01_T"
++    readout="ArcCollection"
++    zpos = "ArcEndcap_position_z"
++    >
++  <!-- /detectors/detector/vessel -->
++  <vessel
++      skinMaterial="CarbonFibStr"
++      skin_vis="arc_vessel_vis"
++      bulk_material="Rohacell300WP"
++      bulk_vis="arc_vessel_bulk_vis"
++      bulk_skin_ratio = "0.8"
++    >
++  </vessel>
++  <!-- /detectors/detector/radiatorgas -->
++  <!-- ALFA: pressurised xenon radiator (Xenon_ARC, materials_arc_o1_v01.xml) -->
++  <radiatorgas
++      material="Xenon_ARC"
++      vis="arc_gas_vis"
++    >
++  </radiatorgas>
++  <!-- /detectors/detector/radiatoraerogel -->
++  <radiatoraerogel
++      material="Aerogel_PFRICH"
++      vis="arc_aerogel_vis"
++    >
++  </radiatoraerogel>
++  <!-- /detectors/detector/sensors -->
++  <sensors
++      material="SiliconOptical"
++      vis="arc_sensor_vis"
++      sensor_side_Y="ARC_SENSOR_Y"
++      sensor_side_X="ARC_SENSOR_X"
++      thickness="ARC_SENSOR_THICKNESS"
++      >
++  </sensors>
++  <!-- /detectors/detector/mirror -->
++  <mirror
++      material="CarbonFibStr"
++      thickness="ARC_MIRROR_THICKNESS"
++      surface="ARC_MirrorSurface"
++      >
++  </mirror>
++  </detector>
++</detectors>
++
++<readouts>
++  <readout name="ArcCollection">
++    <segmentation
++      type="CartesianGridXY"
++      grid_size_x="ARC_SENSOR_pitchX"
++      grid_size_y="ARC_SENSOR_pitchY"
++      offset_x="-0.5*(ARC_SENSOR_NStripsX-1)*ARC_SENSOR_pitchX"
++      offset_y="-0.5*(ARC_SENSOR_NStripsY-1)*ARC_SENSOR_pitchY"
++      />
++      <id>system:5,barrel:3,cellnumber:24,x:32:-16,y:-16</id>
++  </readout>
++</readouts>
++
++</lccdd>
+diff --git a/FCCee/ALFA/compact/ALFA_o1_v01/DectDimensions_ALFA_o1_v01.xml b/FCCee/ALFA/compact/ALFA_o1_v01/DectDimensions_ALFA_o1_v01.xml
+new file mode 100644
+index 00000000..004e51f9
+--- /dev/null
++++ b/FCCee/ALFA/compact/ALFA_o1_v01/DectDimensions_ALFA_o1_v01.xml
+@@ -0,0 +1,59 @@
++<lccdd>
++
++  <comment> Global dimensions and detector identifiers for ALFA_o1_v01 </comment>
++  <define>
++
++    <constant name="DetID_OTBar_Barrel" value="3"/>
++    <constant name="DetID_ECAL_Barrel"  value="10"/>
++    <constant name="DetID_ECAL_Endcap"  value="11"/>
++    <constant name="DetID_HCAL_Barrel"  value="12"/>
++    <constant name="DetID_HCAL_Endcap"  value="13"/>
++    <constant name="DetID_ARCBARREL"    value="20"/>
++    <constant name="DetID_ARCENDCAP"    value="21"/>
++
++    <constant name="env_safety" value="0.1*mm"/>
++
++    <constant name="tracker_region_zmax"   value="2.1*m"/>
++    <constant name="tracker_region_rmax"      value="1.8*m"/>
++
++    <constant name="OTBar_inner_radius"   value="500*mm"/>
++    <constant name="OTBar_outer_radius"   value="1800*mm"/>
++    <constant name="OTBar_nGroupingModules" value="1"/>
++
++    <constant name="ECalBarrel_inner_radius" value="2200*mm"/>
++    <constant name="ECalBarrel_outer_radius" value="2650*mm"/>
++    <constant name="ECalBarrel_half_length" value="2300*mm"/>
++
++    <comment>
++      ARC between the outer tracker (r &lt; 1800 mm, |z| &lt; 1345 mm) and the ECAL barrel (r &gt; 2200 mm).
++      Radii and lengths are the CLD_o3_v01 values: the cell optics (RadiatorCell_FinalOptimisation_o1_v01.xml)
++      are optimised for them, so changing them needs a re-optimisation, not a rescale.
++      They match the ALFA design (FCC reco workshop, 26 Oct 2026): 20 cm depth, ~27 cm hexagonal cells.
++      The endcap spans ArcEndcap_position_z +- ArcEndcap_total_length/2 = 2000-2200 mm, clear of the OT barrel
++      (|z| &lt; 1345 mm) and of the compensating solenoid (r &lt; 200 mm).
++    </comment>
++    <constant name="ArcBarrel_inner_radius"  value="1900*mm"/>
++    <constant name="ArcBarrel_outer_radius"  value="2100*mm"/>
++    <constant name="ArcBarrel_total_length"  value="4400*mm"/>
++    <constant name="ArcEndcap_inner_radius"  value="280*mm"/>
++    <constant name="ArcEndcap_outer_radius"  value="1900*mm"/>
++    <constant name="ArcEndcap_total_length"  value="200*mm"/>
++    <constant name="ArcEndcap_position_z"    value="2100*mm"/>
++
++    <comment> ARC xenon radiator working point. Baseline 2 bar: Xe matches the C4F10 index (same ring radius) at 1.98 bar,
++      so the C4F10-optimised cells apply; 1-3 bar scan foreseen (M. Defranchis, ARC pre-demonstrator, ALFA meeting 16 Oct 2026).
++      The ring moves by ~0.1 mrad/K at fixed pressure, so keep the temperature consistent. Ideal-gas scaling from 273.15 K, 1 atm. </comment>
++    <constant name="ARC_XE_PRESSURE_BAR"     value="2.0"/>
++    <constant name="ARC_XE_TEMPERATURE_K"    value="293.15"/>
++    <constant name="ARC_XE_DENSITY_FACTOR"   value="(ARC_XE_PRESSURE_BAR/1.01325)*(273.15/ARC_XE_TEMPERATURE_K)"/>
++
++    <comment> ARC mirror reflectivity (flat). 1.0 = ideal, the k4geo CLD default and the value used for T02-T06;
++      0.90 is the realistic placeholder studied in T07. </comment>
++    <constant name="ARC_MIRROR_REFLECTIVITY" value="1.0"/>
++
++    <constant name="Solenoid_coil_half_length"      value="2.0*m"/>
++    <constant name="Solenoid_coil_outer_radius"      value="2.7*m"/>
++
++  </define>
++
++</lccdd>
+diff --git a/FCCee/ALFA/compact/ALFA_o1_v01/Grainita_ECAL_Barrel_o1_v02.xml b/FCCee/ALFA/compact/ALFA_o1_v01/Grainita_ECAL_Barrel_o1_v02.xml
+new file mode 100644
+index 00000000..4c347e63
+--- /dev/null
++++ b/FCCee/ALFA/compact/ALFA_o1_v01/Grainita_ECAL_Barrel_o1_v02.xml
+@@ -0,0 +1,80 @@
++
++<lccdd>
++<!-- #==========================================================================
++     #  AIDA Detector description implementation 
++     #==========================================================================
++     # Copyright (C) Organisation europeenne pour la Recherche nucleaire (CERN)
++     # All rights reserved.
++     #
++     # For the licensing terms see $DD4hepINSTALL/LICENSE.
++     # For the list of contributors see $DD4hepINSTALL/doc/CREDITS.
++     #
++     #==========================================================================
++-->
++  <!-- <info name="Grainita_ECAL_Barrel_v02"
++    title="Grainita ECAL full detector geometry (first ver.)"
++    author="Fangyi Guo"
++    url="None"
++    status="development"
++    version="0.1">
++  </info> -->
++
++  <define>
++
++    <!-- Global structure -->
++    <constant name="InnerRadius"          value="ECalBarrel_inner_radius"/>
++    <constant name="OuterRadius"          value="ECalBarrel_outer_radius"/>
++    <constant name="CrystalThickness"     value="40.5*cm"/>
++    <constant name="BackSpace"            value="1.8*cm"/>
++    <constant name="HalfZ"                value="ECalBarrel_half_length"/>
++    <constant name="NumberOfPhiSectors"   value="72"/>
++    <constant name="NumberOfZModules"     value="15"/>
++
++    <!-- Module -->
++    <constant name="FrameThickness"       value="10*mm"/>
++    <constant name="SegThickness"         value="2.5*mm"/>
++    <constant name="ModuleTiltAngle"      value="1.5*deg"/>
++
++    <!-- Cell -->
++    <!-- Segmentation to achieve readout granularity of 7 mm in front of ECAL barrel surface.
++    It corresponds to AngularGranularity = 3.2 mrad
++    Two longitudinal segmentations are achieved from short-long fiber structure.  -->
++    <constant name="AngularGranularity"   value="3.2*mrad"/>   
++    <constant name="rho0"                 value="FrameThickness"/>   
++    <constant name="rho1"                 value="FrameThickness + CrystalThickness/5"/>   
++    <constant name="rho2"                 value="FrameThickness + CrystalThickness+10*mm"/>   
++
++
++  </define>
++  
++
++  <!-- Define the detector. A detector has a name, type to be returned in .cpp file with 
++       DECLARE_DETELEMENT(type,create_detector_c++method), vis attributes (optional),
++       and sensitive-detector (true/false), if sensitive="true" a readout must the passed.
++       If a detector contains sub-detectors, their information must be included as below.
++  -->
++  <detectors>
++    <detector name="Grainita_ECAL_Barrel_v02" type="Grainita_ECAL_Barrel_v02" vis="CaloVis" id ="10" readout="GrainitaEcalBarrelRO" material="MixGrains">
++    <type_flags type=" DetType_CALORIMETER + DetType_ELECTROMAGNETIC + DetType_BARREL"/>
++    </detector>
++  </detectors>
++
++
++  <readouts>
++    <readout name="GrainitaEcalBarrelRO">
++      <segmentation type="FCCSWGridRhoPhiTheta_k4geo"
++              phi_bins="2*pi/AngularGranularity"
++              grid_size_theta="AngularGranularity"
++              rho_bins="rho0 rho1 rho2"
++              rho_bin_count="2"
++              min_theta="atan((InnerRadius+FrameThickness)/HalfZ)-ModuleTiltAngle"
++              max_theta="pi-atan((InnerRadius+FrameThickness)/HalfZ)+ModuleTiltAngle"
++              clear_extra_fields="1"
++              offset_R="InnerRadius"/>
++      <id>system:5,stave:6,sector:7,phi:-16,theta:16,rho:5</id>
++    </readout>
++  </readouts> 
++
++
++
++</lccdd>
+diff --git a/FCCee/ALFA/compact/ALFA_o1_v01/MDI_params.xml b/FCCee/ALFA/compact/ALFA_o1_v01/MDI_params.xml
+new file mode 100644
+index 00000000..a3b62b4d
+--- /dev/null
++++ b/FCCee/ALFA/compact/ALFA_o1_v01/MDI_params.xml
+@@ -0,0 +1,48 @@
++<lccdd>
++
++  <define>
++
++    <constant name="CrossingAngle" value="0.030*rad"/>  
++
++    <comment> Beam pipe parameters (taken from IDEA) </comment>
++    <constant name="BeamPipeGoldWidth" value="0.005*mm" />
++    <constant name="BPWWall"       value="0.35*mm" />
++    <constant name="BPWCool"       value="1.0*mm" />
++    <constant name="BeamPipeWidth" value="2.0*BPWWall + BPWCool"/>
++
++    <constant name="BeamPipeWidthFirstCone" value="2.0*mm" />
++    <constant name="CentralBeamPipe_zmax" value="9.0*cm"/>          <!-- Shorter central beam pipe -->
++    <constant name="SeparatedBeamPipe_z" value="1190.0*mm"/> <!-- was 1159.97*mm in FCCDetectors/> -->
++    <constant name="CentralBeamPipe_rmax" value="10.0*mm"/>
++    <constant name="ConeBeamPipe_Rmax" value="28.9*mm" />
++    <constant name="BeamPipeGoldWidth" value="0.005*mm" /> 
++    <constant name="BeamPipeGoldTolerance" value="0.001*mm" />  <!-- dummy tolerance, some small non zero value -->
++    <constant name="BeamPipeConeHalfAngle" value="(ConeBeamPipe_Rmax + BeamPipeWidthFirstCone - CentralBeamPipe_rmax ) / (SeparatedBeamPipe_z - CentralBeamPipe_zmax)" />
++
++    <constant name="SeparatedBeamPipe_rmax"  value="15*mm"/>
++    <constant name="BeamPipeTantalShieldWidth"  value="15*mm"/>
++    <constant name="SideFillerShieldWidth"  value="7*mm"/>
++    <constant name="TopFillerShieldWidth"  value="8*mm"/>
++    <constant name="BeamPipe_end" value="12500*mm"/>
++
++    <comment> Mike Sullivan's Synch Rad mask </comment>
++    <constant name="MiddleOfSRMask_z" value="2.1*m" />
++    <constant name="SynchRadMaskSize" value="5*mm" /> <!-- mask tip is at 10 mm from the beamline -->
++    <constant name="mask_epsilon" value="0.001*mm" />
++
++    <constant name="QD0_min_z" value="2000*mm"/>
++    <constant name="QD0_max_z" value="5200*mm"/>
++    <constant name="QD0Coil_outer_radius" value="30*mm"/>
++
++    <constant name="CollimatorInFrontOfQD0_dz" value="20*cm"/>   
++    <constant name="CollimatorInFrontOfQD0_radius" value="10*mm"/>
++    <constant name="CollimatorInFrontOfQD0_dr" value="16*mm"/>
++
++    <constant name="LumiCal_max_z" value="1186.5*mm" />
++    <constant name="LumiCal_min_z" value="1074*mm"/>
++
++    <constant name="CompSol_min_z" value="1230*mm"/>
++
++  </define>
++
++</lccdd>
+diff --git a/FCCee/ALFA/compact/ALFA_o1_v01/OuterTrackerBarrel_o1_v00.xml b/FCCee/ALFA/compact/ALFA_o1_v01/OuterTrackerBarrel_o1_v00.xml
+new file mode 100644
+index 00000000..d14d3ba9
+--- /dev/null
++++ b/FCCee/ALFA/compact/ALFA_o1_v01/OuterTrackerBarrel_o1_v00.xml
+@@ -0,0 +1,346 @@
++<lccdd>
++
++    <info name="ALFA_Tracker"
++        title="ALFA Outer Tracker Barrel"
++        author="Eduardo Ploerer"
++        url="no_url"
++        status="development"
++        version="v01">
++    </info>
++    
++
++    <comment> Sensor parameters </comment>
++    <define>
++        <constant name="OTBar_sens_rphi"    value="25.0*mm"/>
++        <constant name="OTBar_sens_rphi_periphery"    value="1.2*mm"/>
++        <constant name="OTBar_sens_rphi_sensitive"    value="OTBar_sens_rphi - OTBar_sens_rphi_periphery"/>
++        <constant name="OTBar_sens_rphi_spacing" value="0.0*mm"/> <comment> Nominally 0.05 mm, but set to 0 mm to match engineering design </comment>
++        <constant name="OTBar_sens_z"       value="32.0*mm"/>
++        <!-- <constant name="OTBar_sens_z_spacing"    value="0.05*mm"/> <comment> Sensor spacing in z not currently implemented </comment> -->
++
++        <constant name="OTBar_Sensitive_thickness" value="0.05*mm"/>
++
++        <comment> Module parameters </comment>
++        <constant name="OTBar_mod_z"             value="4.0 * OTBar_sens_z"/>
++        <constant name="OTBar_mod_z_spacing"             value="0.1*mm"/> <comment> This describes the clearance between modules in z </comment>
++        <constant name="OTBar_mod_rphi_periphery"   value="2.0 * OTBar_sens_rphi_periphery + OTBar_sens_rphi_spacing"/>
++        <constant name="OTBar_mod_rphi"             value="2.0 * OTBar_sens_rphi_sensitive + OTBar_mod_rphi_periphery"/>
++        <constant name="OTBar_mod_rphi_spacing"      value="0.1*mm"/> <comment> Sensor spacing in rphi not currently implemented (but used for pipe placement) </comment> 
++
++        <constant name="OTBar_sens_Copper_width"    value="2.0 * OTBar_mod_rphi + OTBar_mod_rphi_spacing"/> 
++        <constant name="OTBar_sens_Copper_thickness"    value="0.002*mm"/> <comment> Equivalent Copper on MAPS </comment>
++
++        <constant name="OTBar_mod_overlap"       value="0.0*mm"/>
++
++    </define>
++
++    <comment> Passive volumes </comment>
++    <define>
++
++        <constant name="OTBar_Cooling_Plate_width" value="2.0 * OTBar_mod_rphi + OTBar_mod_rphi_spacing + 2.0 * 0.4*mm"/> <comment> Note extra x 2 since two "true" modules are packed in rphi, 0.4 mm clearance between module edge and coldplate edge </comment>
++        <constant name="OTBar_Cooling_Plate_CFleece_thickness" value="0.040*mm"/> <comment> Each plate corresponds to 0.02 mm </comment>
++        <constant name="OTBar_Cooling_Plate_K13D2U_thickness" value="0.120*mm"/>
++        <constant name="OTBar_Cooling_Plate_CPaper_thickness" value="0.030*mm"/>
++        <constant name="OTBar_Cooling_Plate_thickness" value="OTBar_Cooling_Plate_CFleece_thickness + OTBar_Cooling_Plate_K13D2U_thickness + OTBar_Cooling_Plate_CPaper_thickness"/>
++
++
++        <constant name="OTBar_Cooling_Pipe_thickness"    value="0.0762*mm"/>
++        <constant name="OTBar_Cooling_Pipe_inner_radius" value="0.8*mm"/> 
++        <constant name="OTBar_Cooling_Pipe_outer_radius" value="OTBar_Cooling_Pipe_inner_radius + OTBar_Cooling_Pipe_thickness"/> 
++        <constant name="OTBar_Cooling_Pipe_offset"       value="OTBar_mod_rphi_spacing / 2.0 + OTBar_sens_rphi + OTBar_sens_rphi_spacing / 2.0"/>
++        <constant name="OTBar_Cooling_Fluid_thickness"   value="OTBar_Cooling_Pipe_inner_radius"/> 
++        <constant name="OTBar_Cooling_Fluid_radius"   value="OTBar_Cooling_Pipe_inner_radius"/> 
++
++        <constant name="OTBar_HDI_width" value="2.0 * OTBar_mod_rphi + OTBar_mod_rphi_spacing"/> <comment> Note extra x 2 since two "true" modules are packed in rphi </comment>
++        <constant name="OTBar_HDI_Coverlay_thickness" value="0.040*mm"/> <comment> For now different materials are implemented as separate components, could be simplified using equivalent thickness of single material. Could even be done within code </comment>
++        <constant name="OTBar_HDI_Aluminium_thickness" value="0.002*mm"/>
++        <constant name="OTBar_HDI_Prepreg_thickness" value="0.045*mm"/>
++        <constant name="OTBar_HDI_thickness" value="OTBar_HDI_Coverlay_thickness + OTBar_HDI_Aluminium_thickness + OTBar_HDI_Prepreg_thickness"/>
++
++
++        <constant name="OTBar_HDI_Connector_Data_z" value="3.5*mm"/>
++        <constant name="OTBar_HDI_Connector_Data_rphi" value="2.7*mm"/>
++        <constant name="OTBar_HDI_Connector_Data_rphi_offset" value="1.4*mm"/>
++        <constant name="OTBar_HDI_Connector_Data_LCP_thickness" value="2.4375*mm"/>
++
++        <constant name="OTBar_HDI_Connector_Power_z" value="2.7*mm"/>
++        <constant name="OTBar_HDI_Connector_Power_z_offset" value="1.61*mm"/>
++        <constant name="OTBar_HDI_Connector_Power_rphi" value="4.3*mm"/>
++        <constant name="OTBar_HDI_Connector_Power_LCP_thickness" value="2.4375*mm"/>
++
++        <constant name="OTBar_Flex_width" value="32.0*mm"/>
++        <constant name="OTBar_Flex_Kapton_thickness" value="0.025*mm"/>
++        <constant name="OTBar_Flex_Coverlay_thickness" value="0.040*mm"/>
++        <constant name="OTBar_Flex_Aluminium_thickness" value="0.024*mm"/>
++        <constant name="OTBar_Flex_Epoxy_thickness" value="0.020*mm"/>
++        <constant name="OTBar_Flex_thickness" value="OTBar_Flex_Kapton_thickness + OTBar_Flex_Coverlay_thickness + OTBar_Flex_Aluminium_thickness + OTBar_Flex_Epoxy_thickness"/>
++
++        <constant name="OTBar_Support_Plate_CFleece_width" value="0.060*mm"/> 
++        <constant name="OTBar_Support_Plate_K13D2U_width" value="0.120*mm"/> 
++        <constant name="OTBar_Support_Plate_width" value="OTBar_Support_Plate_CFleece_width + OTBar_Support_Plate_K13D2U_width"/> 
++        <constant name="OTBar_Support_Foam_width" value="5.0*mm"/> <comment> Width of foam </comment>
++        <constant name="OTBar_Support_Foam_thickness" value="50.0*mm"/> <comment> Height of foam </comment>
++        <constant name="OTBar_Support_Plate_thickness" value="OTBar_Support_Foam_thickness - 2.0 * 0.5*mm"/> <comment> Leave clearance of 0.5 mm from top and bottom of support foam </comment>
++        <constant name="OTBar_Support_Foam_offset" value="(OTBar_Cooling_Plate_width / 2.0) - 14.5*mm - OTBar_Support_Plate_width - (OTBar_Support_Foam_width / 2.0)"/> <comment> Assume 14.5 mm clearance from coldplate edge </comment>
++        <constant name="OTBar_Support_Foam_filled_half_length" value="58.9*mm - 15.0*mm"/> <comment> Assume filled volume of support foam is 58.9 mm - 15 mm clearance </comment>
++
++        <constant name="OTBar_Stave_thickness" value="OTBar_Cooling_Plate_thickness + OTBar_Sensitive_thickness + OTBar_sens_Copper_thickness + OTBar_HDI_thickness + OTBar_Flex_thickness"/>
++        <constant name="OTBar_Stave_width" value="OTBar_Cooling_Plate_width"/> <comment> Doubling here since two modules in nx </comment>
++        <constant name="OTBar_module_distance_sides" value="0."/> <comment> Assume no shingling for now </comment>
++
++
++
++    </define>
++
++    <define>
++
++        <comment> Layer MID 1 parameters </comment>
++        <constant name="OTBar_nStaves1" value="52."/> <comment> Input quantity : radius is derived. Should be %2. Should not be too low in order to have clearance between phi-adjacent staves. </comment>
++        <constant name="OTBar_dr" value="5.0*mm"/> <comment> Radial offset of every second stave </comment>
++        <constant name="OTBar_r1" value="((OTBar_HDI_width - 2 * 0.5*mm) - OTBar_dr * tan(2 * pi / OTBar_nStaves1) + sqrt((OTBar_HDI_width - 2 * 0.5*mm) * (OTBar_HDI_width - 2 * 0.5*mm) + tan(2 * pi / OTBar_nStaves1) * tan(2 * pi / OTBar_nStaves1) * (OTBar_dr * OTBar_dr + (OTBar_HDI_width - 2 * 0.5*mm) * (OTBar_HDI_width - 2 * 0.5*mm)))) / (2 * tan(2 * pi / OTBar_nStaves1)) - 50.*mm"/>
++        <constant name="OTBar_nModules1" value="21"/> 
++        <constant name="OTBar_phiOffset1" value="0."/>
++
++        <comment> Layer MID 2 parameters </comment>
++        <constant name="OTBar_nStaves2" value="60."/> <comment> Input quantity : radius is derived </comment>
++        <constant name="OTBar_r2" value="((OTBar_HDI_width - 2 * 0.5*mm) - OTBar_dr * tan(2 * pi / OTBar_nStaves2) + sqrt((OTBar_HDI_width - 2 * 0.5*mm) * (OTBar_HDI_width - 2 * 0.5*mm) + tan(2 * pi / OTBar_nStaves2) * tan(2 * pi / OTBar_nStaves2) * (OTBar_dr * OTBar_dr + (OTBar_HDI_width - 2 * 0.5*mm) * (OTBar_HDI_width - 2 * 0.5*mm)))) / (2 * tan(2 * pi / OTBar_nStaves2)) - 50.*mm"/>
++        <constant name="OTBar_nModules2" value="OTBar_nModules1"/> 
++        <constant name="OTBar_phiOffset2" value="0."/>
++
++        <comment> Layer OUT 1 parameters </comment>
++        <constant name="OTBar_nStaves3" value="104."/> <comment> Input quantity : radius is derived </comment>
++        <constant name="OTBar_r3" value="((OTBar_HDI_width - 2 * 0.5*mm) - OTBar_dr * tan(2 * pi / OTBar_nStaves3) + sqrt((OTBar_HDI_width - 2 * 0.5*mm) * (OTBar_HDI_width - 2 * 0.5*mm) + tan(2 * pi / OTBar_nStaves3) * tan(2 * pi / OTBar_nStaves3) * (OTBar_dr * OTBar_dr + (OTBar_HDI_width - 2 * 0.5*mm) * (OTBar_HDI_width - 2 * 0.5*mm)))) / (2 * tan(2 * pi / OTBar_nStaves3)) - 50.*mm"/>
++        <constant name="OTBar_nModules3" value="OTBar_nModules1"/> 
++        <constant name="OTBar_phiOffset3" value="0."/>
++
++        <comment> Layer OUT 2 parameters </comment>
++        <constant name="OTBar_nStaves4" value="112."/> <comment> Input quantity : radius is derived </comment>
++        <constant name="OTBar_r4" value="((OTBar_HDI_width - 2 * 0.5*mm) - OTBar_dr * tan(2 * pi / OTBar_nStaves4) + sqrt((OTBar_HDI_width - 2 * 0.5*mm) * (OTBar_HDI_width - 2 * 0.5*mm) + tan(2 * pi / OTBar_nStaves4) * tan(2 * pi / OTBar_nStaves4) * (OTBar_dr * OTBar_dr + (OTBar_HDI_width - 2 * 0.5*mm) * (OTBar_HDI_width - 2 * 0.5*mm)))) / (2 * tan(2 * pi / OTBar_nStaves4)) - 50.*mm"/>
++        <constant name="OTBar_nModules4" value="OTBar_nModules1"/> 
++        <constant name="OTBar_phiOffset4" value="0."/>
++
++
++        <constant name="OTBar_half_length"    value="(OTBar_nModules1 * OTBar_mod_z + (OTBar_nModules1 - 1) * OTBar_mod_z_spacing) / 2.0"/> <comment> Half-length of barrel, computed as in Excel </comment>
++
++
++    </define>
++
++
++
++    <readouts>
++        <readout name="OTBarCollection">
++            <id>${GlobalTrackerReadoutID}</id>
++        </readout>
++    </readouts>
++
++    <detectors>
++        <detector name="OTBar" type="VertexBarrel_detailed_o1_v03" vis="OTBarEnvVis" 
++                  id="DetID_OTBar_Barrel" readout="OTBarCollection">
++
++            <envelope vis="OTBarEnvVis">
++                <shape type="Tube" rmin="OTBar_inner_radius" rmax="OTBar_outer_radius" 
++                       dz="OTBar_half_length" material="Air"/>
++            </envelope>
++
++            <type_flags type="DetType_TRACKER + DetType_PIXEL + DetType_BARREL"/>
++
++            <comment> Single Stave Definition </comment>
++
++              
++            <stave name="OTBarStave_single" length="2.*OTBar_half_length" 
++              dr="OTBar_module_distance_sides" 
++              vis="OTBarStaveVis"
++              layer_id="unique">
++
++            <comment> Bot String </comment>
++
++                <comment> Flex </comment>
++                <components name="OTBarFlex" r="0." offset="0." length="OTBar_half_length">
++                    <component thickness="OTBar_Flex_Kapton_thickness"    width="OTBar_Flex_width" r="0." material="Kapton" vis="OTBarFlexVis"/>
++                    <component thickness="OTBar_Flex_Coverlay_thickness"    width="OTBar_Flex_width" r="0. + OTBar_Flex_Kapton_thickness" material="Coverlay" vis="OTBarFlexVis"/>
++                    <component thickness="OTBar_Flex_Aluminium_thickness" width="OTBar_Flex_width" r="0. + OTBar_Flex_Kapton_thickness + OTBar_Flex_Coverlay_thickness" material="Aluminum" vis="OTBarFlexVis"/>
++                    <component thickness="OTBar_Flex_Epoxy_thickness"      width="OTBar_Flex_width" r="0. + OTBar_Flex_Kapton_thickness + OTBar_Flex_Coverlay_thickness + OTBar_Flex_Aluminium_thickness" material="Epoxy" vis="OTBarFlexVis"/>
++                </components>
++
++                <comment> HDI </comment>
++                <components name="OTBarHDI" r="OTBar_Flex_thickness" offset="0." length="OTBar_half_length">
++                    <component thickness="OTBar_HDI_Coverlay_thickness" width="OTBar_HDI_width" r="0." material="Coverlay" vis="OTBarHDIVis"/>
++                    <component thickness="OTBar_HDI_Aluminium_thickness" width="OTBar_HDI_width" r="0. + OTBar_HDI_Coverlay_thickness" material="Aluminum" vis="OTBarHDIVis"/>
++                    <component thickness="OTBar_HDI_Prepreg_thickness" width="OTBar_HDI_width" r="0. + OTBar_HDI_Coverlay_thickness + OTBar_HDI_Aluminium_thickness" material="Prepreg" vis="OTBarHDIVis"/>
++                </components>
++                <comment> Works, placement seems believeable, update: color, thickness, material, radius? </comment>
++
++
++                <comment> Sensor Copper Layer (Equivalent) </comment>
++                <components name="OTBarSensorCu" r="OTBar_Flex_thickness + OTBar_HDI_thickness" offset="0." length="OTBar_half_length">
++                    <component thickness="OTBar_sens_Copper_thickness" width="OTBar_sens_Copper_width" r="0." material="Copper" vis="OTBarCopperVis"/>
++                </components>
++                <comment> Do not subdivide Copper layer, since gaps are less than .1 mm </comment>
++
++                <comment> Sensor </comment>
++                <sensor name="OTBarSensor" r="OTBar_Flex_thickness + OTBar_HDI_thickness + OTBar_sens_Copper_thickness" thickness="OTBar_Sensitive_thickness" material="Silicon" nx="2." nGroupingModules="OTBar_nGroupingModules">
++                    <include ref="OuterTracker_module.xml"/>
++                </sensor>
++                <comment> Note: Bot sensors should appear first, in order to have layer_id monotonically increasing w/ radius </comment>
++                <comment> Looks ok, update: module dimensions, module number (following stave geometry updates above), module periphery,  ? </comment>
++                <comment> Are sensor planes direction agnostic? </comment>
++
++
++
++                <comment> Cooling </comment>
++                <components name="OTBarCooling" r="OTBar_Flex_thickness + OTBar_HDI_thickness + OTBar_Sensitive_thickness + OTBar_sens_Copper_thickness" offset="0." length="OTBar_half_length">
++
++                    <component thickness="OTBar_Cooling_Plate_CFleece_thickness" width="OTBar_Cooling_Plate_width" r="0." material="CarbonFleece" vis="OTBarCoolingPlateVis"/>
++                    <component thickness="OTBar_Cooling_Plate_K13D2U_thickness" width="OTBar_Cooling_Plate_width" r="0. + OTBar_Cooling_Plate_CFleece_thickness" material="K13D2U" vis="OTBarCoolingPlateVis"/>
++                    <component thickness="OTBar_Cooling_Plate_CPaper_thickness" width="OTBar_Cooling_Plate_width" r="0. + OTBar_Cooling_Plate_CFleece_thickness + OTBar_Cooling_Plate_K13D2U_thickness" material="CarbonPaper" vis="OTBarCoolingPlateVis"/>
++
++                    <component inner_radius="OTBar_Cooling_Pipe_inner_radius"  outer_radius="OTBar_Cooling_Pipe_outer_radius" offset="+OTBar_Cooling_Pipe_offset" r="OTBar_Cooling_Plate_thickness" material="Kapton" vis="OTBarCoolingPipeVis"/>
++                    <component inner_radius="0."  outer_radius="OTBar_Cooling_Fluid_radius" offset="+OTBar_Cooling_Pipe_offset" r="OTBar_Cooling_Plate_thickness + (OTBar_Cooling_Pipe_outer_radius - OTBar_Cooling_Pipe_inner_radius)" material="OpteonSF10" vis="OTBarCoolingFluidVis"/>
++
++
++                    <component inner_radius="OTBar_Cooling_Pipe_inner_radius"  outer_radius="OTBar_Cooling_Pipe_outer_radius" offset="-OTBar_Cooling_Pipe_offset" r="OTBar_Cooling_Plate_thickness" material="Kapton" vis="OTBarCoolingPipeVis"/>
++                    <component inner_radius="0."  outer_radius="OTBar_Cooling_Fluid_radius" offset="-OTBar_Cooling_Pipe_offset" r="OTBar_Cooling_Plate_thickness + (OTBar_Cooling_Pipe_outer_radius - OTBar_Cooling_Pipe_inner_radius)" material="OpteonSF10" vis="OTBarCoolingFluidVis"/>
++
++
++
++                </components>
++
++            <comment> Support Foam </comment>
++
++                <components name="Support_Foam_filled" r="OTBar_Stave_thickness" length="OTBar_Support_Foam_filled_half_length" z_offset="OTBar_half_length - OTBar_Support_Foam_filled_half_length">
++                    <component thickness="OTBar_Support_Foam_thickness"  width="OTBar_Support_Foam_width" offset="+OTBar_Support_Foam_offset" r="0." material="FR3703" vis="OTBarSupportFilledVis"/>
++                    <component thickness="OTBar_Support_Foam_thickness"  width="OTBar_Support_Foam_width" offset="-OTBar_Support_Foam_offset" r="0." material="FR3703" vis="OTBarSupportFilledVis"/>
++                </components>
++
++                <components name="Support_Foam_truss" r="OTBar_Stave_thickness" length="OTBar_half_length - 2. * OTBar_Support_Foam_filled_half_length">
++                    <component thickness="OTBar_Support_Foam_thickness"  width="OTBar_Support_Foam_width" offset="+OTBar_Support_Foam_offset" r="0." material="FR3703_truss" vis="OTBarSupportTrussVis"/>
++                    <component thickness="OTBar_Support_Foam_thickness"  width="OTBar_Support_Foam_width" offset="-OTBar_Support_Foam_offset" r="0." material="FR3703_truss" vis="OTBarSupportTrussVis"/>
++                </components>
++
++                <components name="Support_Foam_filled" r="OTBar_Stave_thickness" length="OTBar_Support_Foam_filled_half_length" z_offset="-OTBar_half_length + OTBar_Support_Foam_filled_half_length">
++                    <component thickness="OTBar_Support_Foam_thickness"  width="OTBar_Support_Foam_width" offset="+OTBar_Support_Foam_offset" r="0." material="FR3703" vis="OTBarSupportFilledVis"/>
++                    <component thickness="OTBar_Support_Foam_thickness"  width="OTBar_Support_Foam_width" offset="-OTBar_Support_Foam_offset" r="0." material="FR3703" vis="OTBarSupportFilledVis"/>
++                </components>
++
++                <comment> Carbon plate added in BAR354_EC353_VTX108 </comment>
++                <components name="Support_Plate" r="OTBar_Stave_thickness" length="OTBar_half_length">
++
++                  <component thickness="OTBar_Support_Plate_thickness" width="OTBar_Support_Plate_K13D2U_width" offset="+OTBar_Support_Foam_offset + OTBar_Support_Foam_width / 2.0 + OTBar_Support_Plate_K13D2U_width / 2.0" r="0.5*mm" material="K13D2U" vis="OTBarSupportPlateVis"/>
++                  <component thickness="OTBar_Support_Plate_thickness" width="OTBar_Support_Plate_CFleece_width" offset="+OTBar_Support_Foam_offset + OTBar_Support_Foam_width / 2.0 + OTBar_Support_Plate_K13D2U_width + OTBar_Support_Plate_CFleece_width / 2.0" r="0.5*mm" material="CarbonFleece" vis="OTBarSupportPlateVis"/>
++
++                  <component thickness="OTBar_Support_Plate_thickness" width="OTBar_Support_Plate_K13D2U_width" offset="+OTBar_Support_Foam_offset - OTBar_Support_Foam_width / 2.0 - OTBar_Support_Plate_K13D2U_width / 2.0" r="0.5*mm" material="K13D2U" vis="OTBarSupportPlateVis"/>
++                  <component thickness="OTBar_Support_Plate_thickness" width="OTBar_Support_Plate_CFleece_width" offset="+OTBar_Support_Foam_offset - OTBar_Support_Foam_width / 2.0 - OTBar_Support_Plate_K13D2U_width - OTBar_Support_Plate_CFleece_width / 2.0" r="0.5*mm" material="CarbonFleece" vis="OTBarSupportPlateVis"/>
++
++                  <component thickness="OTBar_Support_Plate_thickness" width="OTBar_Support_Plate_K13D2U_width" offset="-OTBar_Support_Foam_offset - OTBar_Support_Foam_width / 2.0 - OTBar_Support_Plate_K13D2U_width / 2.0" r="0.5*mm" material="K13D2U" vis="OTBarSupportPlateVis"/>
++                  <component thickness="OTBar_Support_Plate_thickness" width="OTBar_Support_Plate_CFleece_width" offset="-OTBar_Support_Foam_offset - OTBar_Support_Foam_width / 2.0 - OTBar_Support_Plate_K13D2U_width - OTBar_Support_Plate_CFleece_width / 2.0" r="0.5*mm" material="CarbonFleece" vis="OTBarSupportPlateVis"/>
++
++                  <component thickness="OTBar_Support_Plate_thickness" width="OTBar_Support_Plate_K13D2U_width" offset="-OTBar_Support_Foam_offset + OTBar_Support_Foam_width / 2.0 + OTBar_Support_Plate_K13D2U_width / 2.0" r="0.5*mm" material="K13D2U" vis="OTBarSupportPlateVis"/>
++                  <component thickness="OTBar_Support_Plate_thickness" width="OTBar_Support_Plate_CFleece_width" offset="-OTBar_Support_Foam_offset + OTBar_Support_Foam_width / 2.0 + OTBar_Support_Plate_K13D2U_width + OTBar_Support_Plate_CFleece_width / 2.0" r="0.5*mm" material="CarbonFleece" vis="OTBarSupportPlateVis"/>
++
++                </components>
++
++            <comment> Top String </comment>
++
++                <comment> Cooling </comment>
++                <components name="OTBarCooling" r="OTBar_Stave_thickness + OTBar_Support_Foam_thickness + 0." offset="0." length="OTBar_half_length">
++
++                    <component thickness="OTBar_Cooling_Plate_CFleece_thickness" width="OTBar_Cooling_Plate_width" r="0. + OTBar_Cooling_Plate_CPaper_thickness + OTBar_Cooling_Plate_K13D2U_thickness" material="CarbonFleece" vis="OTBarCoolingPlateVis"/>
++                    <component thickness="OTBar_Cooling_Plate_K13D2U_thickness" width="OTBar_Cooling_Plate_width" r="0. + OTBar_Cooling_Plate_CPaper_thickness" material="K13D2U" vis="OTBarCoolingPlateVis"/>
++                    <component thickness="OTBar_Cooling_Plate_CPaper_thickness" width="OTBar_Cooling_Plate_width" r="0." material="CarbonPaper" vis="OTBarCoolingPlateVis"/>
++
++                    <component inner_radius="OTBar_Cooling_Pipe_inner_radius"  outer_radius="OTBar_Cooling_Pipe_outer_radius" offset="+OTBar_Cooling_Pipe_offset" r="0. - 2.0 * OTBar_Cooling_Pipe_outer_radius" material="Kapton" vis="OTBarCoolingPipeVis"/>
++                    <component inner_radius="0."  outer_radius="OTBar_Cooling_Fluid_radius" offset="+OTBar_Cooling_Pipe_offset" r="0. - OTBar_Cooling_Pipe_outer_radius - OTBar_Cooling_Pipe_inner_radius" material="OpteonSF10" vis="OTBarCoolingFluidVis"/>
++
++                    <component inner_radius="OTBar_Cooling_Pipe_inner_radius"  outer_radius="OTBar_Cooling_Pipe_outer_radius" offset="-OTBar_Cooling_Pipe_offset" r="0. - 2.0 * OTBar_Cooling_Pipe_outer_radius" material="Kapton" vis="OTBarCoolingPipeVis"/>
++                    <component inner_radius="0."  outer_radius="OTBar_Cooling_Fluid_radius" offset="-OTBar_Cooling_Pipe_offset" r="0. - OTBar_Cooling_Pipe_outer_radius - OTBar_Cooling_Pipe_inner_radius" material="OpteonSF10" vis="OTBarCoolingFluidVis"/>
++
++
++                </components>
++                <comment> Works, placement seems believeable, update: color, thickness, material, radius? </comment>
++
++                <comment> Sensor </comment>
++                <sensor name="OTBarSensor" r="OTBar_Stave_thickness + OTBar_Support_Foam_thickness + OTBar_Cooling_Plate_thickness" thickness="OTBar_Sensitive_thickness" material="Silicon" nx="2." nGroupingModules="OTBar_nGroupingModules">
++                    <include ref="OuterTracker_module.xml"/>
++
++                    <comment> Moved to module definition above, since geo builder does not support .xml and inline both as handles </comment>
++                    <!-- <comment> Include HDI connectors here, since these are localized and repeated across modules </comment> -->
++                    <!-- <component name="OTBar_HDI_Connector_Data_LCP"  sensitive="False" r="OTBar_Sensitive_thickness + OTBar_sens_Copper_thickness" thickness="OTBar_HDI_Connector_Data_LCP_thickness" ymin="-OTBar_HDI_Connector_Data_LCP_z / 2." ymax="OTBar_HDI_Connector_Data_LCP_z / 2." xmin="-OTBar_HDI_Connector_Data_LCP_rphi / 2." xmax="OTBar_HDI_Connector_Data_LCP_rphi / 2." vis="OTBarConnectorVis"/> -->
++
++                </sensor>
++                <comment> Looks ok, update: module dimensions, module number (following stave geometry updates above), module periphery,  ? </comment>
++
++                <comment> Sensor Copper Layer (Equivalent) </comment>
++                <components name="OTBarSensorCu" r="OTBar_Stave_thickness + OTBar_Support_Foam_thickness + OTBar_Cooling_Plate_thickness + OTBar_Sensitive_thickness" offset="0." length="OTBar_half_length">
++                    <component thickness="OTBar_sens_Copper_thickness" width="OTBar_sens_Copper_width" r="0." material="Copper" vis="OTBarCopperVis"/>
++                </components>
++                <comment> Do not subdivide Copper layer, since gaps are less than .1 mm </comment>
++
++                <comment> HDI </comment>
++                <components name="OTBarHDI" r="OTBar_Stave_thickness + OTBar_Support_Foam_thickness + OTBar_Cooling_Plate_thickness + OTBar_Sensitive_thickness + OTBar_sens_Copper_thickness" offset="0." length="OTBar_half_length">
++                    <component thickness="OTBar_HDI_Coverlay_thickness" width="OTBar_HDI_width" r="0. + OTBar_HDI_Prepreg_thickness + OTBar_HDI_Aluminium_thickness" material="Coverlay" vis="OTBarHDIVis"/>
++                    <component thickness="OTBar_HDI_Aluminium_thickness" width="OTBar_HDI_width" r="0. + OTBar_HDI_Prepreg_thickness" material="Aluminum" vis="OTBarHDIVis"/>
++                    <component thickness="OTBar_HDI_Prepreg_thickness" width="OTBar_HDI_width" r="0." material="Prepreg" vis="OTBarHDIVis"/>
++                </components>
++                <comment> Works, placement seems believeable, update: color, thickness, material, radius? </comment>
++
++
++                <comment> Flex </comment>
++                <components name="OTBarFlex" r="OTBar_Stave_thickness + OTBar_Support_Foam_thickness + OTBar_Cooling_Plate_thickness + OTBar_Sensitive_thickness + OTBar_sens_Copper_thickness + OTBar_HDI_thickness" offset="0." length="OTBar_half_length">
++                    <component thickness="OTBar_Flex_Kapton_thickness"    width="OTBar_Flex_width" r="0. + OTBar_Flex_Epoxy_thickness + OTBar_Flex_Aluminium_thickness + OTBar_Flex_Coverlay_thickness" material="Kapton" vis="OTBarFlexVis"/>
++                    <component thickness="OTBar_Flex_Coverlay_thickness"    width="OTBar_Flex_width" r="0. + OTBar_Flex_Epoxy_thickness + OTBar_Flex_Aluminium_thickness" material="Coverlay" vis="OTBarFlexVis"/>
++                    <component thickness="OTBar_Flex_Aluminium_thickness" width="OTBar_Flex_width" r="0. + OTBar_Flex_Epoxy_thickness" material="Aluminum" vis="OTBarFlexVis"/>
++                    <component thickness="OTBar_Flex_Epoxy_thickness"      width="OTBar_Flex_width" r="0." material="Epoxy" vis="OTBarFlexVis"/>
++                </components>
++
++
++            </stave>
++
++            <comment> Layer MID 1 </comment>
++            <layer nLadders="OTBar_nStaves1" 
++                   r="OTBar_r1" 
++                   dr="OTBar_dr" 
++                   id="0" 
++                   nmodules="OTBar_nModules1" 
++                   name="OTBarStave_single" 
++                   step_z="OTBar_mod_z_spacing" 
++                   step_rphi="OTBar_mod_rphi_spacing" 
++                   phi0="OTBar_phiOffset1"/>
++
++            <comment> Layer MID 2 </comment>
++            <layer nLadders="OTBar_nStaves2" 
++                   r="OTBar_r2" 
++                   dr="OTBar_dr" 
++                   id="1" 
++                   nmodules="OTBar_nModules2" 
++                   name="OTBarStave_single" 
++                   step_z="OTBar_mod_z_spacing" 
++                   step_rphi="OTBar_mod_rphi_spacing" 
++                   phi0="OTBar_phiOffset2"/>
++            <comment> Layer OUT 1 </comment>
++            <layer nLadders="OTBar_nStaves3" 
++                   r="OTBar_r3" 
++                   dr="OTBar_dr" 
++                   id="2" 
++                   nmodules="OTBar_nModules3" 
++                   name="OTBarStave_single" 
++                   step_z="OTBar_mod_z_spacing" 
++                   step_rphi="OTBar_mod_rphi_spacing" 
++                   phi0="OTBar_phiOffset3"/>
++            <comment> Layer OUT 2 </comment>
++            <layer nLadders="OTBar_nStaves4" 
++                   r="OTBar_r4" 
++                   dr="OTBar_dr" 
++                   id="3" 
++                   nmodules="OTBar_nModules4" 
++                   name="OTBarStave_single" 
++                   step_z="OTBar_mod_z_spacing" 
++                   step_rphi="OTBar_mod_rphi_spacing" 
++                   phi0="OTBar_phiOffset4"/>
++
++        </detector>
++    </detectors>
++
++
++
++
++</lccdd>
+diff --git a/FCCee/ALFA/compact/ALFA_o1_v01/OuterTracker_module.xml b/FCCee/ALFA/compact/ALFA_o1_v01/OuterTracker_module.xml
+new file mode 100644
+index 00000000..e69abb88
+--- /dev/null
++++ b/FCCee/ALFA/compact/ALFA_o1_v01/OuterTracker_module.xml
+@@ -0,0 +1,18 @@
++<lccdd>
++
++    <comment> Sensor components of the silicon outer tracker barrel and disk </comment>
++
++    <component name="Left_Sensor_Column" sensitive="True" ymin="-OTBar_mod_z / 2." ymax="OTBar_mod_z / 2." xmin="-OTBar_mod_rphi / 2." xmax="-OTBar_mod_rphi_periphery / 2." vis="OTBarSensitiveVis"/>
++    <component name="Right_Sensor_Column" sensitive="True" ymin="-OTBar_mod_z / 2." ymax="OTBar_mod_z / 2." xmin="+OTBar_mod_rphi_periphery / 2." xmax="OTBar_mod_rphi / 2." vis="OTBarSensitiveVis"/>
++    <component name="Sensor_Periphery" sensitive="False" ymin="-OTBar_mod_z / 2." ymax="OTBar_mod_z / 2." xmin="-OTBar_mod_rphi_periphery / 2." xmax="OTBar_mod_rphi_periphery / 2." vis="OTBarPeripheryVis"/>
++
++
++
++
++    <!-- <comment> Include HDI connectors here, since these are localized and repeated across modules </comment> -->
++    <!---->
++    <!-- <component name="OTBar_HDI_Connector_Data_LCP"  sensitive="False" r="OTBar_Sensitive_thickness + OTBar_sens_Copper_thickness" thickness="OTBar_HDI_Connector_Data_LCP_thickness" ymin="-OTBar_HDI_Connector_Data_z / 2." ymax="OTBar_HDI_Connector_Data_z / 2." xmin="-OTBar_mod_rphi / 2. + OTBar_HDI_Connector_Data_rphi_offset" xmax="-OTBar_mod_rphi / 2. + OTBar_HDI_Connector_Data_rphi + OTBar_HDI_Connector_Data_rphi_offset" vis="OTBarConnectorVis"/> -->
++    <!---->
++    <!-- <component name="OTBar_HDI_Connector_Power_LCP"  sensitive="False" r="OTBar_Sensitive_thickness + OTBar_sens_Copper_thickness" thickness="OTBar_HDI_Connector_Power_LCP_thickness" ymin="-OTBar_mod_z / 2. + OTBar_HDI_Connector_Power_z_offset" ymax="-OTBar_mod_z / 2. + OTBar_HDI_Connector_Power_z + OTBar_HDI_Connector_Power_z_offset" xmin="-OTBar_HDI_Connector_Power_rphi / 2." xmax="OTBar_HDI_Connector_Power_rphi / 2." vis="OTBarConnectorVis"/> -->
++
++</lccdd>
+diff --git a/FCCee/ALFA/compact/ALFA_o1_v01/display.xml b/FCCee/ALFA/compact/ALFA_o1_v01/display.xml
+new file mode 100644
+index 00000000..dee5458d
+--- /dev/null
++++ b/FCCee/ALFA/compact/ALFA_o1_v01/display.xml
+@@ -0,0 +1,74 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<lccdd>
++
++  <!-- Consolidated visualization (color) definitions -->
++
++  <display>
++
++    <!-- Outer Tracker Barrel -->
++    <vis name="OTBarEnvVis"          alpha="1.0" r="1.0" g="1.0" b="0.0" showDaughters="true" visible="true"/>
++
++
++    <vis name="OTBarStaveVis"        alpha="1.0" r="1.0" g="0.5" b="0.0" showDaughters="true" visible="true"/>
++    <vis name="OTBarSupportTrussVis"       alpha="1.0" r="0.6" g="0.6" b="0.6" showDaughters="true" visible="true"/>
++    <vis name="OTBarSupportFilledVis"       alpha="1.0" r="0.5" g="0.5" b="0.5" showDaughters="true" visible="true"/>
++    <vis name="OTBarCoolingPlateVis" alpha="1.0" r="0.621" g="0.793" b="1.000" showDaughters="true" visible="true"/>
++
++    <vis name="OTBarCoolingPipeVis"       alpha="1.0" r="1.0" g="1.0" b="1.0" showDaughters="true" visible="false"/>
++    <vis name="OTBarCoolingFluidVis"        alpha="1.0" r="0.0" g="0.0" b="1.0" showDaughters="true" visible="false"/>
++    <vis name="OTBarPeripheryVis" alpha="1.0" r="0.0" g="0.6" b="0.0" showDaughters="true" visible="false"/>
++    <vis name="OTBarSensitiveVis" alpha="1.0" r="0.08" g="0.75" b="0.08" showDaughters="true" visible="false"/>
++    <vis name="OTBarCopperVis" alpha="1.0" r="0.0" g="0.0" b="0.0" showDaughters="true" visible="false"/>
++    <vis name="OTBarHDIVis" alpha="1.0" r="1.000" g="0.500" b="0.000" showDaughters="true" visible="false"/>
++    <vis name="OTBarFlexVis" alpha="1.0" r="1.000" g="0.000" b="1.000" showDaughters="true" visible="false"/>
++    <vis name="OTBarSupportPlateVis" alpha="1.0" r="0.41" g="0.51" b="0.59" showDaughters="true" visible="false"/>
++    <vis name="OTBarConnectorVis" alpha="1.0" r="0.0" g="0.0" b="0.0" showDaughters="true" visible="false"/>
++
++
++    <!-- Grainita ECAL  -->
++    <vis name="Invisible"        alpha="0.0" r="0.0" g="0.0"  b="0.0"   showDaughters="false" visible="false"/>
++    <vis name="SeeThrough"       alpha="0.0" r="0.0" g="0.0"  b="0.0"   showDaughters="true"  visible="false"/>
++
++    <vis name="CaloVis" alpha="1.0" r="0.0" g="1.0" b="0.0" showDaughters="true" visible="true"/>
++    <vis name="CaloLayerVis" alpha="1.0" r="0.0" g="0.0" b="1.0" showDaughters="true" visible="true"/>
++    <vis name="CarbonFrameVis" alpha="1.0" r="0.375" g="0.375" b="0.375" showDaughters="true" visible="true"/>
++    <vis name="SensitiveVis" alpha="1.0" r="0.4" g="0.7" b="1.0" showDaughters="false" visible="true"/>
++    <vis name="WLSFiberVis" alpha="1.0" r="1.0" g="0.3" b="0.2" showDaughters="true" visible="true"/>
++    <vis name="FiberCladdingVis" alpha="1.0" r="1.0" g="0.6" b="0.2" showDaughters="true" visible="true"/>
++
++      <comment> ARC. Colour by function: carbon-fibre vessel (dark grey, see-through), xenon volume (pale violet),
++      aerogel (pale blue), mirrors (silver, one colour for all cells), SiPM arrays (red), cooling plates (copper).
++      The driver asks for arc_mirror_vis&lt;N&gt; per cell type, so every index gets the same mirror colour. </comment>
++    <vis name="arc_vessel_vis"       alpha="0.25" r="0.25" g="0.25" b="0.28" showDaughters="true" visible="true"/>
++    <vis name="arc_vessel_bulk_vis"  alpha="0.25" r="0.85" g="0.80" b="0.60" showDaughters="true" visible="true"/>
++    <vis name="arc_envelope_vis"     alpha="0.08" r="0.62" g="0.55" b="0.90" showDaughters="true" visible="true"/>
++    <vis name="arc_gas_vis"          alpha="0.05" r="0.62" g="0.55" b="0.90" showDaughters="true" visible="true"/>
++    <vis name="arc_aerogel_vis"      alpha="0.60" r="0.55" g="0.80" b="1.00" showDaughters="true" visible="true"/>
++    <vis name="arc_sensor_vis"       alpha="1.0"  r="0.85" g="0.15" b="0.10" showDaughters="true" visible="true"/>
++    <vis name="arc_cooling_vis"      alpha="1.0"  r="0.72" g="0.45" b="0.20" showDaughters="true" visible="true"/>
++    <vis name="arc_mirror_vis"       alpha="1.0"  r="0.78" g="0.80" b="0.84" showDaughters="true" visible="true"/>
++    <vis name="arc_mirror_vis1"   alpha="1.0" r="0.78" g="0.80" b="0.84" showDaughters="true" visible="true"/>
++    <vis name="arc_mirror_vis2"   alpha="1.0" r="0.78" g="0.80" b="0.84" showDaughters="true" visible="true"/>
++    <vis name="arc_mirror_vis3"   alpha="1.0" r="0.78" g="0.80" b="0.84" showDaughters="true" visible="true"/>
++    <vis name="arc_mirror_vis4"   alpha="1.0" r="0.78" g="0.80" b="0.84" showDaughters="true" visible="true"/>
++    <vis name="arc_mirror_vis5"   alpha="1.0" r="0.78" g="0.80" b="0.84" showDaughters="true" visible="true"/>
++    <vis name="arc_mirror_vis6"   alpha="1.0" r="0.78" g="0.80" b="0.84" showDaughters="true" visible="true"/>
++    <vis name="arc_mirror_vis7"   alpha="1.0" r="0.78" g="0.80" b="0.84" showDaughters="true" visible="true"/>
++    <vis name="arc_mirror_vis8"   alpha="1.0" r="0.78" g="0.80" b="0.84" showDaughters="true" visible="true"/>
++    <vis name="arc_mirror_vis9"   alpha="1.0" r="0.78" g="0.80" b="0.84" showDaughters="true" visible="true"/>
++    <vis name="arc_mirror_vis10"   alpha="1.0" r="0.78" g="0.80" b="0.84" showDaughters="true" visible="true"/>
++    <vis name="arc_mirror_vis11"   alpha="1.0" r="0.78" g="0.80" b="0.84" showDaughters="true" visible="true"/>
++    <vis name="arc_mirror_vis12"   alpha="1.0" r="0.78" g="0.80" b="0.84" showDaughters="true" visible="true"/>
++    <vis name="arc_mirror_vis13"   alpha="1.0" r="0.78" g="0.80" b="0.84" showDaughters="true" visible="true"/>
++    <vis name="arc_mirror_vis14"   alpha="1.0" r="0.78" g="0.80" b="0.84" showDaughters="true" visible="true"/>
++    <vis name="arc_mirror_vis15"   alpha="1.0" r="0.78" g="0.80" b="0.84" showDaughters="true" visible="true"/>
++    <vis name="arc_mirror_vis16"   alpha="1.0" r="0.78" g="0.80" b="0.84" showDaughters="true" visible="true"/>
++    <vis name="arc_mirror_vis17"   alpha="1.0" r="0.78" g="0.80" b="0.84" showDaughters="true" visible="true"/>
++    <vis name="arc_mirror_vis18"   alpha="1.0" r="0.78" g="0.80" b="0.84" showDaughters="true" visible="true"/>
++    <vis name="arc_mirror_vis19"   alpha="1.0" r="0.78" g="0.80" b="0.84" showDaughters="true" visible="true"/>
++    <vis name="arc_mirror_vis20"   alpha="1.0" r="0.78" g="0.80" b="0.84" showDaughters="true" visible="true"/>
++    <vis name="arc_mirror_vis21"   alpha="1.0" r="0.78" g="0.80" b="0.84" showDaughters="true" visible="true"/>
++    <vis name="arc_no_vis"           showDaughters="true" visible="false"/>
++  </display>
++
++</lccdd>
+diff --git a/FCCee/ALFA/compact/ALFA_o1_v01/elements.xml b/FCCee/ALFA/compact/ALFA_o1_v01/elements.xml
+new file mode 100644
+index 00000000..f35eb345
+--- /dev/null
++++ b/FCCee/ALFA/compact/ALFA_o1_v01/elements.xml
+@@ -0,0 +1,884 @@
++<materials>
++ <element Z="89" formula="Ac" name="Ac" >
++  <atom type="A" unit="g/mol" value="227.028" />
++ </element>
++ <material formula="Ac" name="Actinium" state="solid" >
++  <RL type="X0" unit="cm" value="0.601558" />
++  <NIL type="lambda" unit="cm" value="21.2048" />
++  <D type="density" unit="g/cm3" value="10.07" />
++  <composite n="1" ref="Ac" />
++ </material>
++ <element Z="47" formula="Ag" name="Ag" >
++  <atom type="A" unit="g/mol" value="107.868" />
++ </element>
++ <material formula="Ag" name="Silver" state="solid" >
++  <RL type="X0" unit="cm" value="0.854292" />
++  <NIL type="lambda" unit="cm" value="15.8546" />
++  <D type="density" unit="g/cm3" value="10.5" />
++  <composite n="1" ref="Ag" />
++ </material>
++ <element Z="13" formula="Al" name="Al" >
++  <atom type="A" unit="g/mol" value="26.9815" />
++ </element>
++ <material formula="Al" name="Aluminum" state="solid" >
++  <RL type="X0" unit="cm" value="8.89632" />
++  <NIL type="lambda" unit="cm" value="38.8766" />
++  <D type="density" unit="g/cm3" value="2.699" />
++  <composite n="1" ref="Al" />
++ </material>
++ <element Z="95" formula="Am" name="Am" >
++  <atom type="A" unit="g/mol" value="243.061" />
++ </element>
++ <material formula="Am" name="Americium" state="solid" >
++  <RL type="X0" unit="cm" value="0.42431" />
++  <NIL type="lambda" unit="cm" value="15.9812" />
++  <D type="density" unit="g/cm3" value="13.67" />
++  <composite n="1" ref="Am" />
++ </material>
++ <element Z="18" formula="Ar" name="Ar" >
++  <atom type="A" unit="g/mol" value="39.9477" />
++ </element>
++ <material formula="Ar" name="Argon" state="gas" >
++  <RL type="X0" unit="cm" value="11762.1" />
++  <NIL type="lambda" unit="cm" value="71926" />
++  <D type="density" unit="g/cm3" value="0.00166201" />
++  <composite n="1" ref="Ar" />
++ </material>
++ <element Z="33" formula="As" name="As" >
++  <atom type="A" unit="g/mol" value="74.9216" />
++ </element>
++ <material formula="As" name="Arsenic" state="solid" >
++  <RL type="X0" unit="cm" value="2.0838" />
++  <NIL type="lambda" unit="cm" value="25.7324" />
++  <D type="density" unit="g/cm3" value="5.73" />
++  <composite n="1" ref="As" />
++ </material>
++ <element Z="85" formula="At" name="At" >
++  <atom type="A" unit="g/mol" value="209.987" />
++ </element>
++ <material formula="At" name="Astatine" state="solid" >
++  <RL type="X0" unit="cm" value="0.650799" />
++  <NIL type="lambda" unit="cm" value="22.3202" />
++  <D type="density" unit="g/cm3" value="9.32" />
++  <composite n="1" ref="At" />
++ </material>
++ <element Z="79" formula="Au" name="Au" >
++  <atom type="A" unit="g/mol" value="196.967" />
++ </element>
++ <material formula="Au" name="Gold" state="solid" >
++  <RL type="X0" unit="cm" value="0.334436" />
++  <NIL type="lambda" unit="cm" value="10.5393" />
++  <D type="density" unit="g/cm3" value="19.32" />
++  <composite n="1" ref="Au" />
++ </material>
++ <element Z="5" formula="B" name="B" >
++  <atom type="A" unit="g/mol" value="10.811" />
++ </element>
++ <material formula="B" name="Boron" state="solid" >
++  <RL type="X0" unit="cm" value="22.2307" />
++  <NIL type="lambda" unit="cm" value="32.2793" />
++  <D type="density" unit="g/cm3" value="2.37" />
++  <composite n="1" ref="B" />
++ </material>
++ <element Z="56" formula="Ba" name="Ba" >
++  <atom type="A" unit="g/mol" value="137.327" />
++ </element>
++ <material formula="Ba" name="Barium" state="solid" >
++  <RL type="X0" unit="cm" value="2.37332" />
++  <NIL type="lambda" unit="cm" value="51.6743" />
++  <D type="density" unit="g/cm3" value="3.5" />
++  <composite n="1" ref="Ba" />
++ </material>
++ <element Z="4" formula="Be" name="Be" >
++  <atom type="A" unit="g/mol" value="9.01218" />
++ </element>
++ <material formula="Be" name="Beryllium" state="solid" >
++  <RL type="X0" unit="cm" value="35.276" />
++  <NIL type="lambda" unit="cm" value="39.4488" />
++  <D type="density" unit="g/cm3" value="1.848" />
++  <composite n="1" ref="Be" />
++ </material>
++ <element Z="83" formula="Bi" name="Bi" >
++  <atom type="A" unit="g/mol" value="208.98" />
++ </element>
++ <material formula="Bi" name="Bismuth" state="solid" >
++  <RL type="X0" unit="cm" value="0.645388" />
++  <NIL type="lambda" unit="cm" value="21.3078" />
++  <D type="density" unit="g/cm3" value="9.747" />
++  <composite n="1" ref="Bi" />
++ </material>
++ <element Z="97" formula="Bk" name="Bk" >
++  <atom type="A" unit="g/mol" value="247.07" />
++ </element>
++ <material formula="Bk" name="Berkelium" state="solid" >
++  <RL type="X0" unit="cm" value="0.406479" />
++  <NIL type="lambda" unit="cm" value="15.6902" />
++  <D type="density" unit="g/cm3" value="14" />
++  <composite n="1" ref="Bk" />
++ </material>
++ <element Z="35" formula="Br" name="Br" >
++  <atom type="A" unit="g/mol" value="79.9035" />
++ </element>
++ <material formula="Br" name="Bromine" state="gas" >
++  <RL type="X0" unit="cm" value="1615.12" />
++  <NIL type="lambda" unit="cm" value="21299" />
++  <D type="density" unit="g/cm3" value="0.0070721" />
++  <composite n="1" ref="Br" />
++ </material>
++ <element Z="6" formula="C" name="C" >
++  <atom type="A" unit="g/mol" value="12.0107" />
++ </element>
++ <material formula="C" name="Carbon" state="solid" >
++  <RL type="X0" unit="cm" value="21.3485" />
++  <NIL type="lambda" unit="cm" value="40.1008" />
++  <D type="density" unit="g/cm3" value="2" />
++  <composite n="1" ref="C" />
++ </material>
++ <element Z="20" formula="Ca" name="Ca" >
++  <atom type="A" unit="g/mol" value="40.078" />
++ </element>
++ <material formula="Ca" name="Calcium" state="solid" >
++  <RL type="X0" unit="cm" value="10.4151" />
++  <NIL type="lambda" unit="cm" value="77.3754" />
++  <D type="density" unit="g/cm3" value="1.55" />
++  <composite n="1" ref="Ca" />
++ </material>
++ <element Z="48" formula="Cd" name="Cd" >
++  <atom type="A" unit="g/mol" value="112.411" />
++ </element>
++ <material formula="Cd" name="Cadmium" state="solid" >
++  <RL type="X0" unit="cm" value="1.03994" />
++  <NIL type="lambda" unit="cm" value="19.46" />
++  <D type="density" unit="g/cm3" value="8.65" />
++  <composite n="1" ref="Cd" />
++ </material>
++ <element Z="58" formula="Ce" name="Ce" >
++  <atom type="A" unit="g/mol" value="140.115" />
++ </element>
++ <material formula="Ce" name="Cerium" state="solid" >
++  <RL type="X0" unit="cm" value="1.19506" />
++  <NIL type="lambda" unit="cm" value="27.3227" />
++  <D type="density" unit="g/cm3" value="6.657" />
++  <composite n="1" ref="Ce" />
++ </material>
++ <element Z="98" formula="Cf" name="Cf" >
++  <atom type="A" unit="g/mol" value="251.08" />
++ </element>
++ <material formula="Cf" name="Californium" state="solid" >
++  <RL type="X0" unit="cm" value="0.568328" />
++  <NIL type="lambda" unit="cm" value="22.085" />
++  <D type="density" unit="g/cm3" value="10" />
++  <composite n="1" ref="Cf" />
++ </material>
++ <element Z="17" formula="Cl" name="Cl" >
++  <atom type="A" unit="g/mol" value="35.4526" />
++ </element>
++ <material formula="Cl" name="Chlorine" state="gas" >
++  <RL type="X0" unit="cm" value="6437.34" />
++  <NIL type="lambda" unit="cm" value="38723.9" />
++  <D type="density" unit="g/cm3" value="0.00299473" />
++  <composite n="1" ref="Cl" />
++ </material>
++ <element Z="96" formula="Cm" name="Cm" >
++  <atom type="A" unit="g/mol" value="247.07" />
++ </element>
++ <material formula="Cm" name="Curium" state="solid" >
++  <RL type="X0" unit="cm" value="0.428706" />
++  <NIL type="lambda" unit="cm" value="16.2593" />
++  <D type="density" unit="g/cm3" value="13.51" />
++  <composite n="1" ref="Cm" />
++ </material>
++ <element Z="27" formula="Co" name="Co" >
++  <atom type="A" unit="g/mol" value="58.9332" />
++ </element>
++ <material formula="Co" name="Cobalt" state="solid" >
++  <RL type="X0" unit="cm" value="1.53005" />
++  <NIL type="lambda" unit="cm" value="15.2922" />
++  <D type="density" unit="g/cm3" value="8.9" />
++  <composite n="1" ref="Co" />
++ </material>
++ <element Z="24" formula="Cr" name="Cr" >
++  <atom type="A" unit="g/mol" value="51.9961" />
++ </element>
++ <material formula="Cr" name="Chromium" state="solid" >
++  <RL type="X0" unit="cm" value="2.0814" />
++  <NIL type="lambda" unit="cm" value="18.1933" />
++  <D type="density" unit="g/cm3" value="7.18" />
++  <composite n="1" ref="Cr" />
++ </material>
++ <element Z="55" formula="Cs" name="Cs" >
++  <atom type="A" unit="g/mol" value="132.905" />
++ </element>
++ <material formula="Cs" name="Cesium" state="solid" >
++  <RL type="X0" unit="cm" value="4.4342" />
++  <NIL type="lambda" unit="cm" value="95.317" />
++  <D type="density" unit="g/cm3" value="1.873" />
++  <composite n="1" ref="Cs" />
++ </material>
++ <element Z="29" formula="Cu" name="Cu" >
++  <atom type="A" unit="g/mol" value="63.5456" />
++ </element>
++ <material formula="Cu" name="Copper" state="solid" >
++  <RL type="X0" unit="cm" value="1.43558" />
++  <NIL type="lambda" unit="cm" value="15.5141" />
++  <D type="density" unit="g/cm3" value="8.96" />
++  <composite n="1" ref="Cu" />
++ </material>
++ <element Z="66" formula="Dy" name="Dy" >
++  <atom type="A" unit="g/mol" value="162.497" />
++ </element>
++ <material formula="Dy" name="Dysprosium" state="solid" >
++  <RL type="X0" unit="cm" value="0.85614" />
++  <NIL type="lambda" unit="cm" value="22.2923" />
++  <D type="density" unit="g/cm3" value="8.55" />
++  <composite n="1" ref="Dy" />
++ </material>
++ <element Z="68" formula="Er" name="Er" >
++  <atom type="A" unit="g/mol" value="167.256" />
++ </element>
++ <material formula="Er" name="Erbium" state="solid" >
++  <RL type="X0" unit="cm" value="0.788094" />
++  <NIL type="lambda" unit="cm" value="21.2923" />
++  <D type="density" unit="g/cm3" value="9.066" />
++  <composite n="1" ref="Er" />
++ </material>
++ <element Z="63" formula="Eu" name="Eu" >
++  <atom type="A" unit="g/mol" value="151.964" />
++ </element>
++ <material formula="Eu" name="Europium" state="solid" >
++  <RL type="X0" unit="cm" value="1.41868" />
++  <NIL type="lambda" unit="cm" value="35.6178" />
++  <D type="density" unit="g/cm3" value="5.243" />
++  <composite n="1" ref="Eu" />
++ </material>
++ <element Z="9" formula="F" name="F" >
++  <atom type="A" unit="g/mol" value="18.9984" />
++ </element>
++ <material formula="F" name="Fluorine" state="gas" >
++  <RL type="X0" unit="cm" value="20838.2" />
++  <NIL type="lambda" unit="cm" value="59094.3" />
++  <D type="density" unit="g/cm3" value="0.00158029" />
++  <composite n="1" ref="F" />
++ </material>
++ <element Z="26" formula="Fe" name="Fe" >
++  <atom type="A" unit="g/mol" value="55.8451" />
++ </element>
++ <material formula="Fe" name="Iron" state="solid" >
++  <RL type="X0" unit="cm" value="1.75749" />
++  <NIL type="lambda" unit="cm" value="16.959" />
++  <D type="density" unit="g/cm3" value="7.874" />
++  <composite n="1" ref="Fe" />
++ </material>
++ <element Z="87" formula="Fr" name="Fr" >
++  <atom type="A" unit="g/mol" value="223.02" />
++ </element>
++ <material formula="Fr" name="Francium" state="solid" >
++  <RL type="X0" unit="cm" value="6.18826" />
++  <NIL type="lambda" unit="cm" value="212.263" />
++  <D type="density" unit="g/cm3" value="1" />
++  <composite n="1" ref="Fr" />
++ </material>
++ <element Z="31" formula="Ga" name="Ga" >
++  <atom type="A" unit="g/mol" value="69.7231" />
++ </element>
++ <material formula="Ga" name="Gallium" state="solid" >
++  <RL type="X0" unit="cm" value="2.1128" />
++  <NIL type="lambda" unit="cm" value="24.3351" />
++  <D type="density" unit="g/cm3" value="5.904" />
++  <composite n="1" ref="Ga" />
++ </material>
++ <element Z="64" formula="Gd" name="Gd" >
++  <atom type="A" unit="g/mol" value="157.252" />
++ </element>
++ <material formula="Gd" name="Gadolinium" state="solid" >
++  <RL type="X0" unit="cm" value="0.947208" />
++  <NIL type="lambda" unit="cm" value="23.9377" />
++  <D type="density" unit="g/cm3" value="7.9004" />
++  <composite n="1" ref="Gd" />
++ </material>
++ <element Z="32" formula="Ge" name="Ge" >
++  <atom type="A" unit="g/mol" value="72.6128" />
++ </element>
++ <material formula="Ge" name="Germanium" state="solid" >
++  <RL type="X0" unit="cm" value="2.3013" />
++  <NIL type="lambda" unit="cm" value="27.3344" />
++  <D type="density" unit="g/cm3" value="5.323" />
++  <composite n="1" ref="Ge" />
++ </material>
++ <element Z="1" formula="H" name="H" >
++  <atom type="A" unit="g/mol" value="1.00794" />
++ </element>
++ <material formula="H" name="Hydrogen" state="gas" >
++  <RL type="X0" unit="cm" value="752776" />
++  <NIL type="lambda" unit="cm" value="421239" />
++  <D type="density" unit="g/cm3" value="8.3748e-05" />
++  <composite n="1" ref="H" />
++ </material>
++ <element Z="2" formula="He" name="He" >
++  <atom type="A" unit="g/mol" value="4.00264" />
++ </element>
++ <material formula="He" name="Helium" state="gas" >
++  <RL type="X0" unit="cm" value="567113" />
++  <NIL type="lambda" unit="cm" value="334266" />
++  <D type="density" unit="g/cm3" value="0.000166322" />
++  <composite n="1" ref="He" />
++ </material>
++ <element Z="72" formula="Hf" name="Hf" >
++  <atom type="A" unit="g/mol" value="178.485" />
++ </element>
++ <material formula="Hf" name="Hafnium" state="solid" >
++  <RL type="X0" unit="cm" value="0.517717" />
++  <NIL type="lambda" unit="cm" value="14.7771" />
++  <D type="density" unit="g/cm3" value="13.31" />
++  <composite n="1" ref="Hf" />
++ </material>
++ <element Z="80" formula="Hg" name="Hg" >
++  <atom type="A" unit="g/mol" value="200.599" />
++ </element>
++ <material formula="Hg" name="Mercury" state="solid" >
++  <RL type="X0" unit="cm" value="0.475241" />
++  <NIL type="lambda" unit="cm" value="15.105" />
++  <D type="density" unit="g/cm3" value="13.546" />
++  <composite n="1" ref="Hg" />
++ </material>
++ <element Z="67" formula="Ho" name="Ho" >
++  <atom type="A" unit="g/mol" value="164.93" />
++ </element>
++ <material formula="Ho" name="Holmium" state="solid" >
++  <RL type="X0" unit="cm" value="0.822447" />
++  <NIL type="lambda" unit="cm" value="21.8177" />
++  <D type="density" unit="g/cm3" value="8.795" />
++  <composite n="1" ref="Ho" />
++ </material>
++ <element Z="53" formula="I" name="I" >
++  <atom type="A" unit="g/mol" value="126.904" />
++ </element>
++ <material formula="I" name="Iodine" state="solid" >
++  <RL type="X0" unit="cm" value="1.72016" />
++  <NIL type="lambda" unit="cm" value="35.6583" />
++  <D type="density" unit="g/cm3" value="4.93" />
++  <composite n="1" ref="I" />
++ </material>
++ <element Z="49" formula="In" name="In" >
++  <atom type="A" unit="g/mol" value="114.818" />
++ </element>
++ <material formula="In" name="Indium" state="solid" >
++  <RL type="X0" unit="cm" value="1.21055" />
++  <NIL type="lambda" unit="cm" value="23.2468" />
++  <D type="density" unit="g/cm3" value="7.31" />
++  <composite n="1" ref="In" />
++ </material>
++ <element Z="77" formula="Ir" name="Ir" >
++  <atom type="A" unit="g/mol" value="192.216" />
++ </element>
++ <material formula="Ir" name="Iridium" state="solid" >
++  <RL type="X0" unit="cm" value="0.294142" />
++  <NIL type="lambda" unit="cm" value="9.01616" />
++  <D type="density" unit="g/cm3" value="22.42" />
++  <composite n="1" ref="Ir" />
++ </material>
++ <element Z="19" formula="K" name="K" >
++  <atom type="A" unit="g/mol" value="39.0983" />
++ </element>
++ <material formula="K" name="Potassium" state="solid" >
++  <RL type="X0" unit="cm" value="20.0871" />
++  <NIL type="lambda" unit="cm" value="138.041" />
++  <D type="density" unit="g/cm3" value="0.862" />
++  <composite n="1" ref="K" />
++ </material>
++ <element Z="36" formula="Kr" name="Kr" >
++  <atom type="A" unit="g/mol" value="83.7993" />
++ </element>
++ <material formula="Kr" name="Krypton" state="gas" >
++  <RL type="X0" unit="cm" value="3269.44" />
++  <NIL type="lambda" unit="cm" value="43962.9" />
++  <D type="density" unit="g/cm3" value="0.00347832" />
++  <composite n="1" ref="Kr" />
++ </material>
++ <element Z="57" formula="La" name="La" >
++  <atom type="A" unit="g/mol" value="138.905" />
++ </element>
++ <material formula="La" name="Lanthanum" state="solid" >
++  <RL type="X0" unit="cm" value="1.32238" />
++  <NIL type="lambda" unit="cm" value="29.441" />
++  <D type="density" unit="g/cm3" value="6.154" />
++  <composite n="1" ref="La" />
++ </material>
++ <element Z="3" formula="Li" name="Li" >
++  <atom type="A" unit="g/mol" value="6.94003" />
++ </element>
++ <material formula="Li" name="Lithium" state="solid" >
++  <RL type="X0" unit="cm" value="154.997" />
++  <NIL type="lambda" unit="cm" value="124.305" />
++  <D type="density" unit="g/cm3" value="0.534" />
++  <composite n="1" ref="Li" />
++ </material>
++ <element Z="71" formula="Lu" name="Lu" >
++  <atom type="A" unit="g/mol" value="174.967" />
++ </element>
++ <material formula="Lu" name="Lutetium" state="solid" >
++  <RL type="X0" unit="cm" value="0.703651" />
++  <NIL type="lambda" unit="cm" value="19.8916" />
++  <D type="density" unit="g/cm3" value="9.84" />
++  <composite n="1" ref="Lu" />
++ </material>
++ <element Z="12" formula="Mg" name="Mg" >
++  <atom type="A" unit="g/mol" value="24.305" />
++ </element>
++ <material formula="Mg" name="Magnesium" state="solid" >
++  <RL type="X0" unit="cm" value="14.3859" />
++  <NIL type="lambda" unit="cm" value="58.7589" />
++  <D type="density" unit="g/cm3" value="1.74" />
++  <composite n="1" ref="Mg" />
++ </material>
++ <element Z="25" formula="Mn" name="Mn" >
++  <atom type="A" unit="g/mol" value="54.938" />
++ </element>
++ <material formula="Mn" name="Manganese" state="solid" >
++  <RL type="X0" unit="cm" value="1.96772" />
++  <NIL type="lambda" unit="cm" value="17.8701" />
++  <D type="density" unit="g/cm3" value="7.44" />
++  <composite n="1" ref="Mn" />
++ </material>
++ <element Z="42" formula="Mo" name="Mo" >
++  <atom type="A" unit="g/mol" value="95.9313" />
++ </element>
++ <material formula="Mo" name="Molybdenum" state="solid" >
++  <RL type="X0" unit="cm" value="0.959107" />
++  <NIL type="lambda" unit="cm" value="15.6698" />
++  <D type="density" unit="g/cm3" value="10.22" />
++  <composite n="1" ref="Mo" />
++ </material>
++ <element Z="7" formula="N" name="N" >
++  <atom type="A" unit="g/mol" value="14.0068" />
++ </element>
++ <material formula="N" name="Nitrogen" state="gas" >
++  <RL type="X0" unit="cm" value="32602.2" />
++  <NIL type="lambda" unit="cm" value="72430.3" />
++  <D type="density" unit="g/cm3" value="0.0011652" />
++  <composite n="1" ref="N" />
++ </material>
++ <element Z="11" formula="Na" name="Na" >
++  <atom type="A" unit="g/mol" value="22.9898" />
++ </element>
++ <material formula="Na" name="Sodium" state="solid" >
++  <RL type="X0" unit="cm" value="28.5646" />
++  <NIL type="lambda" unit="cm" value="102.463" />
++  <D type="density" unit="g/cm3" value="0.971" />
++  <composite n="1" ref="Na" />
++ </material>
++ <element Z="41" formula="Nb" name="Nb" >
++  <atom type="A" unit="g/mol" value="92.9064" />
++ </element>
++ <material formula="Nb" name="Niobium" state="solid" >
++  <RL type="X0" unit="cm" value="1.15783" />
++  <NIL type="lambda" unit="cm" value="18.4846" />
++  <D type="density" unit="g/cm3" value="8.57" />
++  <composite n="1" ref="Nb" />
++ </material>
++ <element Z="60" formula="Nd" name="Nd" >
++  <atom type="A" unit="g/mol" value="144.236" />
++ </element>
++ <material formula="Nd" name="Neodymium" state="solid" >
++  <RL type="X0" unit="cm" value="1.11667" />
++  <NIL type="lambda" unit="cm" value="26.6308" />
++  <D type="density" unit="g/cm3" value="6.9" />
++  <composite n="1" ref="Nd" />
++ </material>
++ <element Z="10" formula="Ne" name="Ne" >
++  <atom type="A" unit="g/mol" value="20.18" />
++ </element>
++ <material formula="Ne" name="Neon" state="gas" >
++  <RL type="X0" unit="cm" value="34504.8" />
++  <NIL type="lambda" unit="cm" value="114322" />
++  <D type="density" unit="g/cm3" value="0.000838505" />
++  <composite n="1" ref="Ne" />
++ </material>
++ <element Z="28" formula="Ni" name="Ni" >
++  <atom type="A" unit="g/mol" value="58.6933" />
++ </element>
++ <material formula="Ni" name="Nickel" state="solid" >
++  <RL type="X0" unit="cm" value="1.42422" />
++  <NIL type="lambda" unit="cm" value="15.2265" />
++  <D type="density" unit="g/cm3" value="8.902" />
++  <composite n="1" ref="Ni" />
++ </material>
++ <element Z="93" formula="Np" name="Np" >
++  <atom type="A" unit="g/mol" value="237.048" />
++ </element>
++ <material formula="Np" name="Neptunium" state="solid" >
++  <RL type="X0" unit="cm" value="0.289676" />
++  <NIL type="lambda" unit="cm" value="10.6983" />
++  <D type="density" unit="g/cm3" value="20.25" />
++  <composite n="1" ref="Np" />
++ </material>
++ <element Z="8" formula="O" name="O" >
++  <atom type="A" unit="g/mol" value="15.9994" />
++ </element>
++ <material formula="O" name="Oxygen" state="gas" >
++  <RL type="X0" unit="cm" value="25713.8" />
++  <NIL type="lambda" unit="cm" value="66233.9" />
++  <D type="density" unit="g/cm3" value="0.00133151" />
++  <composite n="1" ref="O" />
++ </material>
++ <element Z="76" formula="Os" name="Os" >
++  <atom type="A" unit="g/mol" value="190.225" />
++ </element>
++ <material formula="Os" name="Osmium" state="solid" >
++  <RL type="X0" unit="cm" value="0.295861" />
++  <NIL type="lambda" unit="cm" value="8.92553" />
++  <D type="density" unit="g/cm3" value="22.57" />
++  <composite n="1" ref="Os" />
++ </material>
++ <element Z="15" formula="P" name="P" >
++  <atom type="A" unit="g/mol" value="30.9738" />
++ </element>
++ <material formula="P" name="Phosphorus" state="solid" >
++  <RL type="X0" unit="cm" value="9.63879" />
++  <NIL type="lambda" unit="cm" value="49.9343" />
++  <D type="density" unit="g/cm3" value="2.2" />
++  <composite n="1" ref="P" />
++ </material>
++ <element Z="91" formula="Pa" name="Pa" >
++  <atom type="A" unit="g/mol" value="231.036" />
++ </element>
++ <material formula="Pa" name="Protactinium" state="solid" >
++  <RL type="X0" unit="cm" value="0.38607" />
++  <NIL type="lambda" unit="cm" value="13.9744" />
++  <D type="density" unit="g/cm3" value="15.37" />
++  <composite n="1" ref="Pa" />
++ </material>
++ <element Z="82" formula="Pb" name="Pb" >
++  <atom type="A" unit="g/mol" value="207.217" />
++ </element>
++ <material formula="Pb" name="Lead" state="solid" >
++  <RL type="X0" unit="cm" value="0.561253" />
++  <NIL type="lambda" unit="cm" value="18.2607" />
++  <D type="density" unit="g/cm3" value="11.35" />
++  <composite n="1" ref="Pb" />
++ </material>
++ <element Z="46" formula="Pd" name="Pd" >
++  <atom type="A" unit="g/mol" value="106.415" />
++ </element>
++ <material formula="Pd" name="Palladium" state="solid" >
++  <RL type="X0" unit="cm" value="0.765717" />
++  <NIL type="lambda" unit="cm" value="13.7482" />
++  <D type="density" unit="g/cm3" value="12.02" />
++  <composite n="1" ref="Pd" />
++ </material>
++ <element Z="61" formula="Pm" name="Pm" >
++  <atom type="A" unit="g/mol" value="144.913" />
++ </element>
++ <material formula="Pm" name="Promethium" state="solid" >
++  <RL type="X0" unit="cm" value="1.04085" />
++  <NIL type="lambda" unit="cm" value="25.4523" />
++  <D type="density" unit="g/cm3" value="7.22" />
++  <composite n="1" ref="Pm" />
++ </material>
++ <element Z="84" formula="Po" name="Po" >
++  <atom type="A" unit="g/mol" value="208.982" />
++ </element>
++ <material formula="Po" name="Polonium" state="solid" >
++  <RL type="X0" unit="cm" value="0.661092" />
++  <NIL type="lambda" unit="cm" value="22.2842" />
++  <D type="density" unit="g/cm3" value="9.32" />
++  <composite n="1" ref="Po" />
++ </material>
++ <element Z="59" formula="Pr" name="Pr" >
++  <atom type="A" unit="g/mol" value="140.908" />
++ </element>
++ <material formula="Pr" name="Praseodymium" state="solid" >
++  <RL type="X0" unit="cm" value="1.1562" />
++  <NIL type="lambda" unit="cm" value="27.1312" />
++  <D type="density" unit="g/cm3" value="6.71" />
++  <composite n="1" ref="Pr" />
++ </material>
++ <element Z="78" formula="Pt" name="Pt" >
++  <atom type="A" unit="g/mol" value="195.078" />
++ </element>
++ <material formula="Pt" name="Platinum" state="solid" >
++  <RL type="X0" unit="cm" value="0.305053" />
++  <NIL type="lambda" unit="cm" value="9.46584" />
++  <D type="density" unit="g/cm3" value="21.45" />
++  <composite n="1" ref="Pt" />
++ </material>
++ <element Z="94" formula="Pu" name="Pu" >
++  <atom type="A" unit="g/mol" value="244.064" />
++ </element>
++ <material formula="Pu" name="Plutonium" state="solid" >
++  <RL type="X0" unit="cm" value="0.298905" />
++  <NIL type="lambda" unit="cm" value="11.0265" />
++  <D type="density" unit="g/cm3" value="19.84" />
++  <composite n="1" ref="Pu" />
++ </material>
++ <element Z="88" formula="Ra" name="Ra" >
++  <atom type="A" unit="g/mol" value="226.025" />
++ </element>
++ <material formula="Ra" name="Radium" state="solid" >
++  <RL type="X0" unit="cm" value="1.22987" />
++  <NIL type="lambda" unit="cm" value="42.6431" />
++  <D type="density" unit="g/cm3" value="5" />
++  <composite n="1" ref="Ra" />
++ </material>
++ <element Z="37" formula="Rb" name="Rb" >
++  <atom type="A" unit="g/mol" value="85.4677" />
++ </element>
++ <material formula="Rb" name="Rubidium" state="solid" >
++  <RL type="X0" unit="cm" value="7.19774" />
++  <NIL type="lambda" unit="cm" value="100.218" />
++  <D type="density" unit="g/cm3" value="1.532" />
++  <composite n="1" ref="Rb" />
++ </material>
++ <element Z="75" formula="Re" name="Re" >
++  <atom type="A" unit="g/mol" value="186.207" />
++ </element>
++ <material formula="Re" name="Rhenium" state="solid" >
++  <RL type="X0" unit="cm" value="0.318283" />
++  <NIL type="lambda" unit="cm" value="9.5153" />
++  <D type="density" unit="g/cm3" value="21.02" />
++  <composite n="1" ref="Re" />
++ </material>
++ <element Z="45" formula="Rh" name="Rh" >
++  <atom type="A" unit="g/mol" value="102.906" />
++ </element>
++ <material formula="Rh" name="Rhodium" state="solid" >
++  <RL type="X0" unit="cm" value="0.746619" />
++  <NIL type="lambda" unit="cm" value="13.2083" />
++  <D type="density" unit="g/cm3" value="12.41" />
++  <composite n="1" ref="Rh" />
++ </material>
++ <element Z="86" formula="Rn" name="Rn" >
++  <atom type="A" unit="g/mol" value="222.018" />
++ </element>
++ <material formula="Rn" name="Radon" state="gas" >
++  <RL type="X0" unit="cm" value="697.777" />
++  <NIL type="lambda" unit="cm" value="23532" />
++  <D type="density" unit="g/cm3" value="0.00900662" />
++  <composite n="1" ref="Rn" />
++ </material>
++ <element Z="44" formula="Ru" name="Ru" >
++  <atom type="A" unit="g/mol" value="101.065" />
++ </element>
++ <material formula="Ru" name="Ruthenium" state="solid" >
++  <RL type="X0" unit="cm" value="0.764067" />
++  <NIL type="lambda" unit="cm" value="13.1426" />
++  <D type="density" unit="g/cm3" value="12.41" />
++  <composite n="1" ref="Ru" />
++ </material>
++ <element Z="16" formula="S" name="S" >
++  <atom type="A" unit="g/mol" value="32.0661" />
++ </element>
++ <material formula="S" name="Sulfur" state="solid" >
++  <RL type="X0" unit="cm" value="9.74829" />
++  <NIL type="lambda" unit="cm" value="55.6738" />
++  <D type="density" unit="g/cm3" value="2" />
++  <composite n="1" ref="S" />
++ </material>
++ <element Z="51" formula="Sb" name="Sb" >
++  <atom type="A" unit="g/mol" value="121.76" />
++ </element>
++ <material formula="Sb" name="Antimony" state="solid" >
++  <RL type="X0" unit="cm" value="1.30401" />
++  <NIL type="lambda" unit="cm" value="25.8925" />
++  <D type="density" unit="g/cm3" value="6.691" />
++  <composite n="1" ref="Sb" />
++ </material>
++ <element Z="21" formula="Sc" name="Sc" >
++  <atom type="A" unit="g/mol" value="44.9559" />
++ </element>
++ <material formula="Sc" name="Scandium" state="solid" >
++  <RL type="X0" unit="cm" value="5.53545" />
++  <NIL type="lambda" unit="cm" value="41.609" />
++  <D type="density" unit="g/cm3" value="2.989" />
++  <composite n="1" ref="Sc" />
++ </material>
++ <element Z="34" formula="Se" name="Se" >
++  <atom type="A" unit="g/mol" value="78.9594" />
++ </element>
++ <material formula="Se" name="Selenium" state="solid" >
++  <RL type="X0" unit="cm" value="2.64625" />
++  <NIL type="lambda" unit="cm" value="33.356" />
++  <D type="density" unit="g/cm3" value="4.5" />
++  <composite n="1" ref="Se" />
++ </material>
++ <element Z="14" formula="Si" name="Si" >
++  <atom type="A" unit="g/mol" value="28.0854" />
++ </element>
++ <material formula="Si" name="Silicon" state="solid" >
++  <RL type="X0" unit="cm" value="9.36607" />
++  <NIL type="lambda" unit="cm" value="45.7531" />
++  <D type="density" unit="g/cm3" value="2.33" />
++  <composite n="1" ref="Si" />
++ </material>
++ <element Z="62" formula="Sm" name="Sm" >
++  <atom type="A" unit="g/mol" value="150.366" />
++ </element>
++ <material formula="Sm" name="Samarium" state="solid" >
++  <RL type="X0" unit="cm" value="1.01524" />
++  <NIL type="lambda" unit="cm" value="24.9892" />
++  <D type="density" unit="g/cm3" value="7.46" />
++  <composite n="1" ref="Sm" />
++ </material>
++ <element Z="50" formula="Sn" name="Sn" >
++  <atom type="A" unit="g/mol" value="118.71" />
++ </element>
++ <material formula="Sn" name="Tin" state="solid" >
++  <RL type="X0" unit="cm" value="1.20637" />
++  <NIL type="lambda" unit="cm" value="23.4931" />
++  <D type="density" unit="g/cm3" value="7.31" />
++  <composite n="1" ref="Sn" />
++ </material>
++ <element Z="38" formula="Sr" name="Sr" >
++  <atom type="A" unit="g/mol" value="87.6166" />
++ </element>
++ <material formula="Sr" name="Strontium" state="solid" >
++  <RL type="X0" unit="cm" value="4.237" />
++  <NIL type="lambda" unit="cm" value="61.0238" />
++  <D type="density" unit="g/cm3" value="2.54" />
++  <composite n="1" ref="Sr" />
++ </material>
++ <element Z="73" formula="Ta" name="Ta" >
++  <atom type="A" unit="g/mol" value="180.948" />
++ </element>
++ <material formula="Ta" name="Tantalum" state="solid" >
++  <RL type="X0" unit="cm" value="0.409392" />
++  <NIL type="lambda" unit="cm" value="11.8846" />
++  <D type="density" unit="g/cm3" value="16.654" />
++  <composite n="1" ref="Ta" />
++ </material>
++ <element Z="65" formula="Tb" name="Tb" >
++  <atom type="A" unit="g/mol" value="158.925" />
++ </element>
++ <material formula="Tb" name="Terbium" state="solid" >
++  <RL type="X0" unit="cm" value="0.893977" />
++  <NIL type="lambda" unit="cm" value="23.0311" />
++  <D type="density" unit="g/cm3" value="8.229" />
++  <composite n="1" ref="Tb" />
++ </material>
++ <element Z="43" formula="Tc" name="Tc" >
++  <atom type="A" unit="g/mol" value="97.9072" />
++ </element>
++ <material formula="Tc" name="Technetium" state="solid" >
++  <RL type="X0" unit="cm" value="0.833149" />
++  <NIL type="lambda" unit="cm" value="14.0185" />
++  <D type="density" unit="g/cm3" value="11.5" />
++  <composite n="1" ref="Tc" />
++ </material>
++ <element Z="52" formula="Te" name="Te" >
++  <atom type="A" unit="g/mol" value="127.603" />
++ </element>
++ <material formula="Te" name="Tellurium" state="solid" >
++  <RL type="X0" unit="cm" value="1.41457" />
++  <NIL type="lambda" unit="cm" value="28.1797" />
++  <D type="density" unit="g/cm3" value="6.24" />
++  <composite n="1" ref="Te" />
++ </material>
++ <element Z="90" formula="Th" name="Th" >
++  <atom type="A" unit="g/mol" value="232.038" />
++ </element>
++ <material formula="Th" name="Thorium" state="solid" >
++  <RL type="X0" unit="cm" value="0.51823" />
++  <NIL type="lambda" unit="cm" value="18.353" />
++  <D type="density" unit="g/cm3" value="11.72" />
++  <composite n="1" ref="Th" />
++ </material>
++ <element Z="22" formula="Ti" name="Ti" >
++  <atom type="A" unit="g/mol" value="47.8667" />
++ </element>
++ <material formula="Ti" name="Titanium" state="solid" >
++  <RL type="X0" unit="cm" value="3.5602" />
++  <NIL type="lambda" unit="cm" value="27.9395" />
++  <D type="density" unit="g/cm3" value="4.54" />
++  <composite n="1" ref="Ti" />
++ </material>
++ <element Z="81" formula="Tl" name="Tl" >
++  <atom type="A" unit="g/mol" value="204.383" />
++ </element>
++ <material formula="Tl" name="Thallium" state="solid" >
++  <RL type="X0" unit="cm" value="0.547665" />
++  <NIL type="lambda" unit="cm" value="17.6129" />
++  <D type="density" unit="g/cm3" value="11.72" />
++  <composite n="1" ref="Tl" />
++ </material>
++ <element Z="69" formula="Tm" name="Tm" >
++  <atom type="A" unit="g/mol" value="168.934" />
++ </element>
++ <material formula="Tm" name="Thulium" state="solid" >
++  <RL type="X0" unit="cm" value="0.754428" />
++  <NIL type="lambda" unit="cm" value="20.7522" />
++  <D type="density" unit="g/cm3" value="9.321" />
++  <composite n="1" ref="Tm" />
++ </material>
++ <element Z="92" formula="U" name="U" >
++  <atom type="A" unit="g/mol" value="238.029" />
++ </element>
++ <material formula="U" name="Uranium" state="solid" >
++  <RL type="X0" unit="cm" value="0.31663" />
++  <NIL type="lambda" unit="cm" value="11.4473" />
++  <D type="density" unit="g/cm3" value="18.95" />
++  <composite n="1" ref="U" />
++ </material>
++ <element Z="23" formula="V" name="V" >
++  <atom type="A" unit="g/mol" value="50.9415" />
++ </element>
++ <material formula="V" name="Vanadium" state="solid" >
++  <RL type="X0" unit="cm" value="2.59285" />
++  <NIL type="lambda" unit="cm" value="21.2187" />
++  <D type="density" unit="g/cm3" value="6.11" />
++  <composite n="1" ref="V" />
++ </material>
++ <element Z="74" formula="W" name="W" >
++  <atom type="A" unit="g/mol" value="183.842" />
++ </element>
++ <material formula="W" name="Tungsten" state="solid" >
++  <RL type="X0" unit="cm" value="0.350418" />
++  <NIL type="lambda" unit="cm" value="10.3057" />
++  <D type="density" unit="g/cm3" value="19.3" />
++  <composite n="1" ref="W" />
++ </material>
++ <element Z="54" formula="Xe" name="Xe" >
++  <atom type="A" unit="g/mol" value="131.292" />
++ </element>
++ <material formula="Xe" name="Xenon" state="gas" >
++  <RL type="X0" unit="cm" value="1546.2" />
++  <NIL type="lambda" unit="cm" value="32477.9" />
++  <D type="density" unit="g/cm3" value="0.00548536" />
++  <composite n="1" ref="Xe" />
++ </material>
++ <element Z="39" formula="Y" name="Y" >
++  <atom type="A" unit="g/mol" value="88.9058" />
++ </element>
++ <material formula="Y" name="Yttrium" state="solid" >
++  <RL type="X0" unit="cm" value="2.32943" />
++  <NIL type="lambda" unit="cm" value="34.9297" />
++  <D type="density" unit="g/cm3" value="4.469" />
++  <composite n="1" ref="Y" />
++ </material>
++ <element Z="70" formula="Yb" name="Yb" >
++  <atom type="A" unit="g/mol" value="173.038" />
++ </element>
++ <material formula="Yb" name="Ytterbium" state="solid" >
++  <RL type="X0" unit="cm" value="1.04332" />
++  <NIL type="lambda" unit="cm" value="28.9843" />
++  <D type="density" unit="g/cm3" value="6.73" />
++  <composite n="1" ref="Yb" />
++ </material>
++ <element Z="30" formula="Zn" name="Zn" >
++  <atom type="A" unit="g/mol" value="65.3955" />
++ </element>
++ <material formula="Zn" name="Zinc" state="solid" >
++  <RL type="X0" unit="cm" value="1.74286" />
++  <NIL type="lambda" unit="cm" value="19.8488" />
++  <D type="density" unit="g/cm3" value="7.133" />
++  <composite n="1" ref="Zn" />
++ </material>
++ <element Z="40" formula="Zr" name="Zr" >
++  <atom type="A" unit="g/mol" value="91.2236" />
++ </element>
++ <material formula="Zr" name="Zirconium" state="solid" >
++  <RL type="X0" unit="cm" value="1.56707" />
++  <NIL type="lambda" unit="cm" value="24.2568" />
++  <D type="density" unit="g/cm3" value="6.506" />
++  <composite n="1" ref="Zr" />
++ </material>
++</materials>
+diff --git a/FCCee/ALFA/compact/ALFA_o1_v01/materials.xml b/FCCee/ALFA/compact/ALFA_o1_v01/materials.xml
+new file mode 100644
+index 00000000..0db9cf89
+--- /dev/null
++++ b/FCCee/ALFA/compact/ALFA_o1_v01/materials.xml
+@@ -0,0 +1,248 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<lccdd>
++
++<properties>
++  <!-- Default optical properties for the v02 mixed-grain material.
++    These are intentionally simple placeholders for enabling optical
++    photon production. They are only used when optical physics is enabled
++    in the steering file. Replace them with measured Grainita values when
++  available. -->
++  <matrix name="RI_MixGrains_Default" coldim="2" values="
++    1.0*eV 1.80
++    6.0*eV 1.80
++    "/>
++  <matrix name="AbsLen_MixGrains_Default" coldim="2" values="
++    1.0*eV 1.0*m
++    6.0*eV 1.0*m
++    "/>
++  <matrix name="ScintFast_MixGrains_Default" coldim="2" values="
++    1.5*eV 0.0
++    2.8*eV 1.0
++    4.5*eV 0.0
++    "/>
++</properties>
++
++<materials>
++
++
++  <material name="Vacuum">
++    <D type="density" unit="g/cm3" value="0.0000000001" />
++    <fraction n="0.754" ref="N"/>
++    <fraction n="0.234" ref="O"/>
++    <fraction n="0.012" ref="Ar"/>
++  </material>
++
++  <material name="Air">
++    <D type="density" unit="g/cm3" value="0.0012"/>
++    <fraction n="0.754" ref="N"/>
++    <fraction n="0.234" ref="O"/>
++    <fraction n="0.012" ref="Ar"/>
++  </material>
++
++  <material name="Water">
++    <MEE unit="eV" value="78"/>
++    <D type="density" value="1.0" unit="g/cm3" />
++    <composite n="2" ref="H" />
++    <composite n="1"  ref="O" />
++  </material>
++
++  <material name="Brass">
++    <D type="density" unit="g/cm3" value="8.44" />
++    <fraction n="0.7" ref="Cu" />
++    <fraction n="0.3" ref="Zn" />
++  </material>
++
++  <comment> Beam Pipe Materials </comment>
++  <material name="AlBeMet162">
++    <D value="2.1" unit="g/cm3"/>
++    <fraction n="0.38" ref="Al"/>
++    <fraction n="0.62" ref="Be"/>
++  </material>
++
++  <material name="LiquidNDecane">
++    <D value="0.73" unit="g/cm3"/>
++    <composite n="10" ref="C" />
++    <composite n="22" ref="H" />
++  </material>
++
++
++  <material name="beam" state="gas">
++    <P unit="pascal" value="6.25e-06"/>
++    <MEE unit="eV" value="38.5760755714278"/>
++    <D unit="g/cm3" value="1.7e-14"/>
++    <fraction n="0.36264" ref="H"/>
++    <fraction n="0.36276" ref="N"/>
++    <fraction n="0.117748421296248" ref="C"/>
++    <fraction n="0.156851578703752" ref="O"/>
++  </material>
++
++  <material name="SolenoidMixture">
++    <D value="4.38" unit="g/cm3"/>
++    <fraction n="0.666" ref="Al"/>
++    <fraction n="0.166" ref="Cu"/>
++    <fraction n="0.084" ref="Ti"/>
++    <fraction n="0.084" ref="Nb"/>
++  </material>
++
++  
++
++  <comment> Outer Tracker Materials </comment>
++  <material name="CarbonPaper">
++    <D type="density" unit="g/cm3" value="1.6"/>
++    <fraction n="1.0" ref="C"/>
++  </material>
++
++  <material name="CarbonFleece">
++    <D type="density" unit="g/cm3" value="0.4"/>
++    <fraction n="1.0" ref="C"/>
++  </material>
++
++  <material name="K13D2U">
++    <D type="density" unit="g/cm3" value="1.0"/>
++    <fraction n="1.0" ref="C"/>
++  </material>
++
++  <material name="Kapton">
++    <D type="density" unit="g/cm3" value="1.42"/>
++    <composite n="22" ref="C"/>
++    <composite n="10" ref="H"/>
++    <composite n="2"  ref="N"/>
++    <composite n="5"  ref="O"/>
++  </material>
++
++  <material name="OpteonSF10">
++    <D type="density" unit="g/cm3" value="1.58"/>
++    <composite n="8"  ref="C"/>
++    <composite n="3"  ref="H"/>
++    <composite n="13" ref="F"/>
++    <composite n="1"  ref="O"/>
++  </material>
++  <comment> https://tmcindustries.com/products/opteon-sf10?variant=32229492228163 </comment>
++
++  <material name="FR3703">
++    <D type="density" unit="g/cm3" value="0.048"/>
++    <composite n="17" ref="C"/>
++    <composite n="16" ref="H"/>
++    <composite n="2"  ref="N"/>
++    <composite n="4"  ref="O"/>
++  </material>
++  <comment> https://www.curbellplastics.com/product/w10-00064/ </comment>
++  <comment> Chemical formula from repeating unit of Polyurethane </comment>
++
++  <material name="FR3703_truss"> 
++    <D type="density" unit="g/cm3" value="0.048 * 0.328"/> 
++    <composite n="17" ref="C"/>
++    <composite n="16" ref="H"/>
++    <composite n="2"  ref="N"/>
++    <composite n="4"  ref="O"/>
++  </material>
++  <comment> As above but the density is reduced by a fill factor 0.328 to account for Warren truss at side </comment>
++
++  <material name="Epoxy">
++    <D type="density" unit="g/cm3" value="1.16"/>
++    <composite n="21" ref="C"/>
++    <composite n="24" ref="H"/>
++    <composite n="4"  ref="O"/>
++  </material>
++  <comment> https://pubchem.ncbi.nlm.nih.gov/compound/Epoxy-Resin#section=IUPAC-Name </comment>
++
++  <material name="Coverlay">
++    <D type="density" unit="g/cm3" value="1.20"/>
++    <fraction n="0.50" ref="Kapton"/>
++    <fraction n="0.50" ref="Epoxy"/>
++  </material>
++
++  <material name="Prepreg">
++    <D type="density" unit="g/cm3" value="1.85"/>
++    <fraction n="1.0" ref="Epoxy"/>
++  </material>
++
++
++  <comment> Grainita Materials </comment>
++
++
++  <material name="ZnWO4">
++    <D type="density" unit="g/cm3" value="7.87" />
++    <composite n="1" ref="Zn" />
++    <composite n="1" ref="W" />
++    <composite n="4" ref="O" />
++  </material>
++
++
++  <material name="HeavyLiquid">
++    <D type="density" unit="g/cm3" value="2.8" />
++    <fraction n="0.26" ref="Water" />
++    <fraction n="0.56" ref="W" />
++    <fraction n="0.02" ref="Na" />
++    <fraction n="0.16" ref="O" />
++  </material>
++
++
++  <material name="WLSFiber">
++    <D type="density" unit="g/cm3" value="1.05" />
++    <composite n="8" ref="C" />
++    <composite n="8" ref="H" />
++  </material>
++
++
++  <material name="PMMA" state="solid">
++    <D value="1.19" unit="g/cm3"/>
++    <composite n="5" ref="C" />
++    <composite n="2" ref="O" />
++    <composite n="8" ref="H" />
++  </material>
++
++  <!--Outer cladding material-->
++  <material name="FP" state="solid">
++    <D value="1.43" unit="g/cm3"/>
++    <composite n="6" ref="C" />
++    <composite n="7" ref="H" />
++    <composite n="3" ref="F" />
++    <composite n="2" ref="O" />
++  </material>
++
++  <!--Note: following material are defined by averaging grains, medium and fibers in 7mm pitch size
++  Fiber structure: WLS fiber r = 0.5 mm, with 0.02 mm thick PMMA cladding -->
++
++  <material name="MixGrains">
++    <D type="density" unit="g/cm3" value="5.6395" />
++    <fraction n="0.789857" ref="ZnWO4" />
++    <fraction n="0.206890" ref="HeavyLiquid" />
++    <fraction n="0.002979" ref="WLSFiber" />
++    <fraction n="0.000274" ref="PMMA" />
++    <property name="RINDEX" ref="RI_MixGrains_Default"/>
++    <property name="ABSLENGTH" ref="AbsLen_MixGrains_Default"/>
++    <property name="SCINTILLATIONCOMPONENT1" ref="ScintFast_MixGrains_Default"/>
++    <constant name="SCINTILLATIONYIELD" value="10/MeV"/>
++    <constant name="SCINTILLATIONTIMECONSTANT1" value="5.0*ns"/>
++    <constant name="RESOLUTIONSCALE" value="1.0"/>
++  </material>
++
++  <material name="AirMixGrains">
++    <D type="density" unit="g/cm3" value="4.4733" />
++    <fraction n="0.995787" ref="ZnWO4" />
++    <fraction n="0.000112" ref="Air" />
++    <fraction n="0.003756" ref="WLSFiber" />
++    <fraction n="0.000346" ref="PMMA" />
++  </material>
++
++  <material name="WaterMixGrains">
++    <D type="density" unit="g/cm3" value="4.8895" />
++    <fraction n="0.911024" ref="ZnWO4" />
++    <fraction n="0.085224" ref="Water" />
++    <fraction n="0.003436" ref="WLSFiber" />
++    <fraction n="0.000316" ref="PMMA" />
++  </material>
++
++
++  <material name="CarbonFiber" state="solid">
++    <MEE unit="eV" value="70.7270877537631"/>
++    <D unit="g/cm3" value="1.46666666666667"/>
++    <fraction n="0.794091986922138" ref="C"/>
++    <fraction n="0.058408571165309" ref="H"/>
++    <fraction n="0.147499441912553" ref="O"/>
++  </material>
++
++</materials>
++</lccdd>
++
+diff --git a/FCCee/ALFA/compact/ALFA_o1_v01/materials_arc_o1_v01.xml b/FCCee/ALFA/compact/ALFA_o1_v01/materials_arc_o1_v01.xml
+new file mode 100644
+index 00000000..ffc5a7c0
+--- /dev/null
++++ b/FCCee/ALFA/compact/ALFA_o1_v01/materials_arc_o1_v01.xml
+@@ -0,0 +1,546 @@
++<lccdd>
++    <!--quantum efficiency of the SiPMs from Martin; outside range, 0 is considered-->
++    <!--https://github.com/MartinDuyTat/ARC_Simulation_Reconstruction/blob/main/include/SiPM.h#L134 -->
++    <!--Original paper: https://www.mdpi.com/1424-8220/19/2/308-->
++    <!--On top, add 5% additional loss of photons caused by surface scattering coefficient-->
++    <matrix name="ARC_SiPM_QuantumEfficiency" coldim="2" values="
++      4.9*eV	0.0
++      4.7*eV	0.0
++      4.5*eV	0.1
++      4.320*eV	0.2
++      4.147*eV	0.41
++      3.850*eV	0.46
++      3.647*eV	0.47
++      3.378*eV	0.52
++      3.163*eV	0.59
++      3.084*eV	0.6
++      3.002*eV	0.6
++      2.938*eV	0.59
++      2.837*eV	0.57
++      2.743*eV	0.56
++      2.655*eV	0.53
++      2.465*eV	0.51
++      2.101*eV	0.4
++      1.771*eV	0.26
++      1.550*eV	0.13
++      1.3*eV	0.0
++      1.1*eV	0.0
++      "/>
++
++  <properties>
++    <matrix name="RINDEX__Vacuum" coldim="2" values="
++      1.0*eV 1.0
++      5.1*eV 1.0
++      "/>
++    <matrix name="RINDEX__Air" coldim="2" values="
++      1.0*eV 1.00029
++      5.1*eV 1.00029
++      "/>
++    <!-- PFRICH property tables from https://github.com/cisbani/dRICh/blob/main/share/source/g4dRIChOptics.hh -->
++    <matrix name="RINDEX__C4F10_PFRICH" coldim="2" values="
++      1.87855*eV   1.0013
++      1.92389*eV  1.0013
++      2.10539*eV  1.00131
++      2.3247*eV   1.00131
++      2.59502*eV  1.00132
++      2.93647*eV  1.00133
++      3.38139*eV  1.00134
++      3.98521*eV  1.00136
++      4.85156*eV  1.0014
++      6.19921*eV  1.00149
++      "/>
++    <!-- Xenon (ALFA ARC gas radiator). Sellmeier fit at 273.15 K, 101325 Pa:
++         n-1 = 0.00322869/(46.301-l^-2) + 0.00355393/(59.578-l^-2) + 0.0606764/(112.74-l^-2), l in um
++         A. Bideau-Mehu et al., JQSRT 25 (1981) 395, doi:10.1016/0022-4073(81)90057-1 (valid 140-623 nm).
++         (n-1) scaled with ARC_XE_DENSITY_FACTOR (ideal gas, defined in DectDimensions_ALFA_o1_v01.xml).
++         Generated by make_xenon_rindex.py (ALFA ARC task T05). -->
++    <matrix name="RINDEX__Xenon_ARC" coldim="2" values="
++      1.8*eV  1+6.833490e-04*ARC_XE_DENSITY_FACTOR
++      2.0*eV  1+6.871741e-04*ARC_XE_DENSITY_FACTOR
++      2.2*eV  1+6.914607e-04*ARC_XE_DENSITY_FACTOR
++      2.4*eV  1+6.962283e-04*ARC_XE_DENSITY_FACTOR
++      2.6*eV  1+7.014993e-04*ARC_XE_DENSITY_FACTOR
++      2.8*eV  1+7.072992e-04*ARC_XE_DENSITY_FACTOR
++      3.0*eV  1+7.136574e-04*ARC_XE_DENSITY_FACTOR
++      3.2*eV  1+7.206071e-04*ARC_XE_DENSITY_FACTOR
++      3.4*eV  1+7.281865e-04*ARC_XE_DENSITY_FACTOR
++      3.6*eV  1+7.364392e-04*ARC_XE_DENSITY_FACTOR
++      3.8*eV  1+7.454155e-04*ARC_XE_DENSITY_FACTOR
++      4.0*eV  1+7.551730e-04*ARC_XE_DENSITY_FACTOR
++      4.2*eV  1+7.657787e-04*ARC_XE_DENSITY_FACTOR
++      4.4*eV  1+7.773104e-04*ARC_XE_DENSITY_FACTOR
++      4.6*eV  1+7.898592e-04*ARC_XE_DENSITY_FACTOR
++      4.8*eV  1+8.035328e-04*ARC_XE_DENSITY_FACTOR
++      5.0*eV  1+8.184592e-04*ARC_XE_DENSITY_FACTOR
++      5.2*eV  1+8.347926e-04*ARC_XE_DENSITY_FACTOR
++      5.4*eV  1+8.527205e-04*ARC_XE_DENSITY_FACTOR
++      5.6*eV  1+8.724739e-04*ARC_XE_DENSITY_FACTOR
++      5.8*eV  1+8.943427e-04*ARC_XE_DENSITY_FACTOR
++      6.0*eV  1+9.186965e-04*ARC_XE_DENSITY_FACTOR
++      6.2*eV  1+9.460170e-04*ARC_XE_DENSITY_FACTOR
++      6.4*eV  1+9.769488e-04*ARC_XE_DENSITY_FACTOR
++      6.6*eV  1+1.012381e-03*ARC_XE_DENSITY_FACTOR
++      6.8*eV  1+1.053585e-03*ARC_XE_DENSITY_FACTOR
++      7.0*eV  1+1.102468e-03*ARC_XE_DENSITY_FACTOR
++      "/>
++    <!-- inline coldim/values on <property> is silently dropped by DD4hep: tables must be named matrices -->
++    <matrix name="ABSLENGTH__Xenon_ARC" coldim="2" values="
++      1.0*eV  10*m
++      7.5*eV  10*m
++      "/>
++    <!-- ARC mirror reflectivity, flat in energy: ARC_MIRROR_REFLECTIVITY (DectDimensions_ALFA_o1_v01.xml);
++         0.90 is a realistic placeholder (no measured ALFA coating curve yet), 1.0 restores the ideal k4geo mirror -->
++    <matrix name="REFLECTIVITY__ARC_Mirror" coldim="2" values="
++      1.0*eV  ARC_MIRROR_REFLECTIVITY
++      7.5*eV  ARC_MIRROR_REFLECTIVITY
++      "/>
++    <matrix name="ABSLENGTH__C4F10_PFRICH" coldim="2" values="
++      1.7712*eV   6.0*m
++      1.92389*eV  6.0*m
++      2.10539*eV  6.0*m
++      2.3247*eV   6.0*m
++      2.59502*eV  6.0*m
++      2.93647*eV  6.0*m
++      3.38139*eV  6.0*m
++      3.98521*eV  6.0*m
++      4.85156*eV  6.0*m
++      6.19921*eV  6.0*m
++      "/>
++    <matrix name="RINDEX__Aerogel_PFRICH" coldim="2" values="
++      1.87855*eV  1.01852
++      1.96673*eV  1.01856
++      2.05490*eV  1.01861
++      2.14308*eV  1.01866
++      2.23126*eV  1.01871
++      2.31943*eV  1.01876
++      2.40761*eV  1.01881
++      2.49579*eV  1.01887
++      2.58396*eV  1.01893
++      2.67214*eV  1.01899
++      2.76032*eV  1.01905
++      2.84849*eV  1.01912
++      2.93667*eV  1.01919
++      3.02485*eV  1.01926
++      3.11302*eV  1.01933
++      3.20120*eV  1.01941
++      3.28938*eV  1.01948
++      3.37755*eV  1.01956
++      3.46573*eV  1.01965
++      3.55391*eV  1.01973
++      3.64208*eV  1.01982
++      3.73026*eV  1.01991
++      3.81844*eV  1.02001
++      3.90661*eV  1.02010
++      3.99479*eV  1.02020
++      4.08297*eV  1.02030
++      4.17114*eV  1.02041
++      4.25932*eV  1.02052
++      4.34750*eV  1.02063
++      4.43567*eV  1.02074
++      4.52385*eV  1.02086
++      4.61203*eV  1.02098
++      4.70020*eV  1.02111
++      4.78838*eV  1.02123
++      4.87656*eV  1.02136
++      4.96473*eV  1.02150
++      5.05291*eV  1.02164
++      5.14109*eV  1.02178
++      5.22927*eV  1.02193
++      5.31744*eV  1.02208
++      5.40562*eV  1.02223
++      5.49380*eV  1.02239
++      5.58197*eV  1.02255
++      5.67015*eV  1.02271
++      5.75833*eV  1.02288
++      5.84650*eV  1.02306
++      5.93468*eV  1.02324
++      6.02286*eV  1.02342
++      6.11103*eV  1.02361
++      6.19921*eV  1.02381
++      "/>
++    <matrix name="ABSLENGTH__Aerogel_PFRICH" coldim="2" values="
++      1.87855*eV  140.000*mm
++      1.96673*eV  141.973*mm
++      2.05490*eV  143.776*mm
++      2.14308*eV  145.431*mm
++      2.23126*eV  146.955*mm
++      2.31943*eV  148.364*mm
++      2.40761*eV  149.669*mm
++      2.49579*eV  150.882*mm
++      2.58396*eV  152.012*mm
++      2.67214*eV  153.067*mm
++      2.76032*eV  154.055*mm
++      2.84849*eV  154.982*mm
++      2.93667*eV  155.854*mm
++      3.02485*eV  156.674*mm
++      3.11302*eV  157.448*mm
++      3.20120*eV  158.180*mm
++      3.28938*eV  158.872*mm
++      3.37755*eV  159.528*mm
++      3.46573*eV  160.150*mm
++      3.55391*eV  160.742*mm
++      3.64208*eV  147.916*mm
++      3.73026*eV  128.139*mm
++      3.81844*eV  111.378*mm
++      3.90661*eV   97.121*mm
++      3.99479*eV   84.948*mm
++      4.08297*eV   74.518*mm
++      4.17114*eV   65.552*mm
++      4.25932*eV   57.819*mm
++      4.34750*eV   51.130*mm
++      4.43567*eV   45.327*mm
++      4.52385*eV   40.278*mm
++      4.61203*eV   35.873*mm
++      4.70020*eV   32.019*mm
++      4.78838*eV   28.641*mm
++      4.87656*eV   25.670*mm
++      4.96473*eV   23.054*mm
++      5.05291*eV   20.742*mm
++      5.14109*eV   18.698*mm
++      5.22927*eV   16.884*mm
++      5.31744*eV   15.272*mm
++      5.40562*eV   13.837*mm
++      5.49380*eV   12.557*mm
++      5.58197*eV   11.413*mm
++      5.67015*eV   10.389*mm
++      5.75833*eV    9.470*mm
++      5.84650*eV    8.645*mm
++      5.93468*eV    7.902*mm
++      6.02286*eV    7.233*mm
++      6.11103*eV    6.629*mm
++      6.19921*eV    6.082*mm
++      "/>
++      <matrix name="RAYLEIGH__Aerogel_BelleII" coldim="2" values="
++      1.88*eV	37.97*cm
++      1.97*eV	31.60*cm
++      2.05*eV	26.52*cm
++      2.14*eV	22.42*cm
++      2.23*eV	19.08*cm
++      2.32*eV	16.34*cm
++      2.41*eV	14.07*cm
++      2.50*eV	12.19*cm
++      2.58*eV	10.61*cm
++      2.67*eV	9.27*cm
++      2.76*eV	8.14*cm
++      2.85*eV	7.18*cm
++      2.94*eV	6.36*cm
++      3.02*eV	5.65*cm
++      3.11*eV	5.03*cm
++      3.20*eV	4.50*cm
++      3.29*eV	4.04*cm
++      3.38*eV	3.63*cm
++      3.47*eV	3.28*cm
++      3.55*eV	2.96*cm
++      3.64*eV	2.69*cm
++      3.73*eV	2.44*cm
++      3.82*eV	2.22*cm
++      3.91*eV	2.03*cm
++      3.99*eV	1.86*cm
++      4.08*eV	1.70*cm
++      4.17*eV	1.56*cm
++      4.26*eV	1.44*cm
++      4.35*eV	1.32*cm
++      4.44*eV	1.22*cm
++      4.52*eV	1.13*cm
++      4.61*eV	1.05*cm
++      4.70*eV	0.97*cm
++      4.79*eV	0.90*cm
++      4.88*eV	0.84*cm
++      4.96*eV	0.78*cm
++      5.05*eV	0.73*cm
++      5.14*eV	0.68*cm
++      5.23*eV	0.63*cm
++      5.32*eV	0.59*cm
++      5.41*eV	0.55*cm
++      5.49*eV	0.52*cm
++      5.58*eV	0.49*cm
++      5.67*eV	0.46*cm
++      5.76*eV	0.43*cm
++      5.85*eV	0.40*cm
++      5.93*eV	0.38*cm
++      6.02*eV	0.36*cm
++      6.11*eV	0.34*cm
++      6.20*eV	0.32*cm
++      "/>
++    <matrix name="RAYLEIGH__Aerogel_PFRICH" coldim="2" values="
++      1.87855*eV  281.107*mm
++      1.96673*eV  233.984*mm
++      2.05490*eV  196.334*mm
++      2.14308*eV  165.962*mm
++      2.23126*eV  141.242*mm
++      2.31943*eV  120.958*mm
++      2.40761*eV  104.188*mm
++      2.49579*eV   90.226*mm
++      2.58396*eV   78.527*mm
++      2.67214*eV   68.663*mm
++      2.76032*eV   60.301*mm
++      2.84849*eV   53.174*mm
++      2.93667*eV   47.070*mm
++      3.02485*eV   41.816*mm
++      3.11302*eV   37.277*mm
++      3.20120*eV   33.336*mm
++      3.28938*eV   29.903*mm
++      3.37755*eV   26.900*mm
++      3.46573*eV   24.265*mm
++      3.55391*eV   21.946*mm
++      3.64208*eV   19.896*mm
++      3.73026*eV   18.080*mm
++      3.81844*eV   16.468*mm
++      3.90661*eV   15.030*mm
++      3.99479*eV   13.746*mm
++      4.08297*eV   12.596*mm
++      4.17114*eV   11.564*mm
++      4.25932*eV   10.637*mm
++      4.34750*eV    9.799*mm
++      4.43567*eV    9.043*mm
++      4.52385*eV    8.358*mm
++      4.61203*eV    7.738*mm
++      4.70020*eV    7.172*mm
++      4.78838*eV    6.659*mm
++      4.87656*eV    6.191*mm
++      4.96473*eV    5.762*mm
++      5.05291*eV    5.370*mm
++      5.14109*eV    5.011*mm
++      5.22927*eV    4.681*mm
++      5.31744*eV    4.379*mm
++      5.40562*eV    4.100*mm
++      5.49380*eV    3.844*mm
++      5.58197*eV    3.606*mm
++      5.67015*eV    3.386*mm
++      5.75833*eV    3.184*mm
++      5.84650*eV    2.996*mm
++      5.93468*eV    2.822*mm
++      6.02286*eV    2.660*mm
++      6.11103*eV    2.510*mm
++      6.19921*eV    2.370*mm
++      "/>
++    <matrix name="RINDEX__Acrylic_PFRICH" coldim="2" values="
++      4.13281*eV  1.5017
++      4.22099*eV  1.5017
++      4.30916*eV  1.5017
++      4.39734*eV  1.5017
++      4.48552*eV  1.5017
++      4.57369*eV  1.5017
++      4.66187*eV  1.5017
++      4.75005*eV  1.5017
++      4.83822*eV  1.5017
++      4.9264*eV   1.5017
++      5.01458*eV  1.5017
++      5.10275*eV  1.5017
++      5.19093*eV  1.5017
++      5.27911*eV  1.5017
++      5.36728*eV  1.5017
++      5.45546*eV  1.5017
++      5.54364*eV  1.5017
++      5.63181*eV  1.5017
++      5.71999*eV  1.5017
++      5.80817*eV  1.5017
++      5.89634*eV  1.5017
++      5.98452*eV  1.5017
++      6.0727*eV   1.5017
++      6.16087*eV  1.5017
++      6.24905*eV  1.5017
++      6.33723*eV  1.5017
++      6.4254*eV   1.5017
++      6.51358*eV  1.5017
++      6.60176*eV  1.5017
++      6.68993*eV  1.5017
++      6.77811*eV  1.5017
++      6.86629*eV  1.5017
++      6.95446*eV  1.5017
++      7.04264*eV  1.5017
++      7.13082*eV  1.5017
++      7.21899*eV  1.5017
++      7.30717*eV  1.5017
++      7.39535*eV  1.5017
++      7.48353*eV  1.5017
++      7.5717*eV   1.5017
++      7.65988*eV  1.5017
++      7.74806*eV  1.5017
++      7.83623*eV  1.5017
++      7.92441*eV  1.5017
++      8.01259*eV  1.5017
++      8.10076*eV  1.5017
++      8.18894*eV  1.5017
++      8.27712*eV  1.5017
++      8.36529*eV  1.5017
++      8.45347*eV  1.5017
++      "/>
++    <matrix name="ABSLENGTH__Acrylic_PFRICH" coldim="2" values="
++      4.13281*eV  82.0704*mm
++      4.22099*eV  36.9138*mm
++      4.30916*eV  13.3325*mm
++      4.39734*eV  5.03627*mm
++      4.48552*eV  2.3393*mm
++      4.57369*eV  1.36177*mm
++      4.66187*eV  0.933192*mm
++      4.75005*eV  0.708268*mm
++      4.83822*eV  0.573082*mm
++      4.9264*eV   0.483641*mm
++      5.01458*eV  0.420282*mm
++      5.10275*eV  0.373102*mm
++      5.19093*eV  0.33662*mm
++      5.27911*eV  0.307572*mm
++      5.36728*eV  0.283902*mm
++      5.45546*eV  0.264235*mm
++      5.54364*eV  0.247641*mm
++      5.63181*eV  0.233453*mm
++      5.71999*eV  0.221177*mm
++      5.80817*eV  0.210456*mm
++      5.89634*eV  0.201012*mm
++      5.98452*eV  0.192627*mm
++      6.0727*eV   0.185134*mm
++      6.16087*eV  0.178399*mm
++      6.24905*eV  0.172309*mm
++      6.33723*eV  0.166779*mm
++      6.4254*eV   0.166779*mm
++      6.51358*eV  0.166779*mm
++      6.60176*eV  0.166779*mm
++      6.68993*eV  0.166779*mm
++      6.77811*eV  0.166779*mm
++      6.86629*eV  0.166779*mm
++      6.95446*eV  0.166779*mm
++      7.04264*eV  0.166779*mm
++      7.13082*eV  0.166779*mm
++      7.21899*eV  0.166779*mm
++      7.30717*eV  0.166779*mm
++      7.39535*eV  0.166779*mm
++      7.48353*eV  0.166779*mm
++      7.5717*eV   0.166779*mm
++      7.65988*eV  0.166779*mm
++      7.74806*eV  0.166779*mm
++      7.83623*eV  0.166779*mm
++      7.92441*eV  0.166779*mm
++      8.01259*eV  0.166779*mm
++      8.10076*eV  0.166779*mm
++      8.18894*eV  0.166779*mm
++      8.27712*eV  0.166779*mm
++      8.36529*eV  0.166779*mm
++      8.45347*eV  0.166779*mm
++      "/>
++  </properties>
++
++  <materials>
++    <material name="AirOptical">
++      <D type="density" unit="g/cm3" value="0.0012"/>
++      <fraction n="0.754" ref="N"/>
++      <fraction n="0.234" ref="O"/>
++      <fraction n="0.012" ref="Ar"/>
++      <property name="RINDEX" ref="RINDEX__Air"/>
++      <property name="ABSLENGTH" coldim="2" values="1*eV  200*m  5*eV  200*m"/>
++    </material>
++    <material name="SiliconOptical">
++      <D type="density" unit="g/cm3" value="2.3"/>
++      <fraction n="1.0" ref="Si"/>
++      <comment> ALFA: fake RINDEX matched to the xenon radiator (see example/arcfullsim.py on BoundaryInvokeSD) </comment>
++      <property name="RINDEX"    ref="RINDEX__Xenon_ARC"/>
++      <property name="ABSLENGTH" coldim="2" values="1*eV  0.1*mm  5*eV  0.1*mm"/>
++    </material>
++    <material name="VacuumOptical">
++      <D type="density" unit="g/cm3" value="0.0000000001"/>
++      <fraction n="0.754" ref="N"/>
++      <fraction n="0.234" ref="O"/>
++      <fraction n="0.012" ref="Ar"/>
++      <property name="RINDEX" ref="RINDEX__Vacuum"/>
++      <property name="ABSLENGTH" coldim="2" values="1*eV  2000*m  5*eV  2000*m"/>
++    </material>
++    <material name="SiliconDioxide"> <!-- density from `G4_SILICON_DIOXIDE` (NIST DB) -->
++      <D type="density" value="2.32" unit="g/cm3"/>
++      <composite n="1" ref="Si"/>
++      <composite n="2" ref="O"/>
++    </material>
++    <material name="Plexiglass">
++      <D type="density" value="1.19" unit="g/cm3"/>
++      <composite n="5" ref="C"/>
++      <composite n="8" ref="H"/>
++      <composite n="2" ref="O"/>
++    </material>
++    <material name="PolyvinylAcetate">
++      <D type="density" value="1.19" unit="g/cm3"/>
++      <composite n="4" ref="C"/>
++      <composite n="6" ref="H"/>
++      <composite n="2" ref="O"/>
++    </material>
++    <material name="Xenon_ARC">
++      <comment> 5.894 kg/m3 at 273.15 K, 1 atm, scaled with ARC_XE_DENSITY_FACTOR. Transparent above ~150 nm: flat 10 m absorption length. </comment>
++      <D type="density" value="5.894e-3*ARC_XE_DENSITY_FACTOR" unit="g/cm3"/>
++      <composite n="1" ref="Xe"/>
++      <property name="RINDEX"    ref="RINDEX__Xenon_ARC"/>
++      <property name="ABSLENGTH" ref="ABSLENGTH__Xenon_ARC"/>
++    </material>
++    <material name="C4F10_PFRICH">
++      <D type="density" value="0.009935" unit="g/cm3"/>
++      <composite n="4"  ref="C"/>
++      <composite n="10" ref="F"/>
++      <property name="RINDEX"    ref="RINDEX__C4F10_PFRICH"/>
++!-- <property name="ABSLENGTH" ref="ABSLENGTH__C4F10_PFRICH"/> -->
++    </material>
++    <material name="Aerogel_PFRICH">
++      <D type="density" value="0.110" unit="g/cm3"/>
++      <comment> n_air = [dens(Si02)-dens(aerogel)] / [dens(Si02)-dens(Air) ] </comment>
++      <fraction n="    (2.32-0.11) / (2.32-0.0012)" ref="Air"/>
++      <fraction n="1 - (2.32-0.11) / (2.32-0.0012)" ref="SiliconDioxide"/>
++      <property name="RINDEX"    ref="RINDEX__Aerogel_PFRICH"/>
++      <comment>
++      The absorption values have an odd dependency on energy.
++      Rayleigh scattering should be the main effect in aerogel, not absorption, see NIMA433(1999)396
++      Therefore, absorption is disregarded at the moment, and Rayleigh data is assumed to be as in Belle II
++      </comment>
++      <property name="RAYLEIGH"  ref="RAYLEIGH__Aerogel_BelleII"/>
++<!--       <property name="ABSLENGTH" ref="ABSLENGTH__Aerogel_PFRICH"/> -->
++<!--       <property name="RAYLEIGH"  ref="RAYLEIGH__Aerogel_PFRICH"/> -->
++    </material>
++    <material name="Acrylic_PFRICH">
++      <D type="density" value="1.19" unit="g/cm3"/>
++      <comment> TO BE IMPROVED </comment>
++      <fraction n="0.99" ref="Plexiglass"/>
++      <fraction n="0.01" ref="PolyvinylAcetate"/>
++      <property name="RINDEX"    ref="RINDEX__Acrylic_PFRICH"/>
++      <property name="ABSLENGTH" ref="ABSLENGTH__Acrylic_PFRICH"/>
++    </material>
++    <material name="CarbonFibStr">
++      <D type="density" value="1.45" unit="g/cm3"/>
++      <comment> CMS ECAL https://gitlab.cern.ch/geant4/geant4/-/blob/master/examples/advanced/composite_calorimeter/dataglobal/material.cms#L183 </comment>
++      <composite n="2"   ref="C"/>
++      <composite n="13"  ref="H"/>
++    </material>
++    
++    <material name="Rohacell300WP">
++      <D type="density" value="0.3" unit="g/cm3"/>
++      <comment> Rohacell 300 WP, polymethacrylimide (PMI), https://performance-foams.evonik.com/en/products-and-solutions/rohacell </comment>
++      <composite n="4" ref="C"/>
++      <composite n="7" ref="H"/>
++      <composite n="1" ref="N"/>
++      <composite n="1" ref="O"/>
++    </material>
++    
++    <material name="Aerogel_vessel_foam">
++      <D type="density" value="0.110" unit="g/cm3"/>
++      <comment> Filling of the ARC walls, made of aerogel as template material </comment>
++      <comment> n_air = [dens(Si02)-dens(aerogel)] / [dens(Si02)-dens(Air) ] </comment>
++      <fraction n="    (2.32-0.11) / (2.32-0.0012)" ref="Air"/>
++      <fraction n="1 - (2.32-0.11) / (2.32-0.0012)" ref="SiliconDioxide"/>
++    </material>
++
++  </materials>
++
++  <surfaces>
++    <opticalsurface name="SensorSurface_PFRICH" model="glisur" finish="polished" type="dielectric_dielectric">
++      <property name="EFFICIENCY" coldim="2" values="
++        1*eV  1
++        4*eV  1
++        7*eV  1
++        "/>
++      <property name="REFLECTIVITY" coldim="2" values="
++        1*eV  0
++        4*eV  0
++        7*eV  0
++        "/>
++    </opticalsurface>
++        <opticalsurface name="ARC_MirrorSurface" model="glisur" finish="polished" type="dielectric_metal">
++      <!-- ALFA: reflectivity from the named matrix below (inline coldim/values are dropped by DD4hep) -->
++      <property name="REFLECTIVITY" ref="REFLECTIVITY__ARC_Mirror"/>
++    </opticalsurface>
++  </surfaces>
++
++</lccdd>
+-- 
+2.52.0
+

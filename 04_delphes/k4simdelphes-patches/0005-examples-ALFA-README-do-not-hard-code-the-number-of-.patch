@@ -1,0 +1,28 @@
+From 7cb1f0d8629a99c48eb827b762a6299965e84f7e Mon Sep 17 00:00:00 2001
+From: hfatehi <trialoftheniku@gmail.com>
+Date: Fri, 30 Oct 2026 03:07:27 +0100
+Subject: [PATCH 5/8] examples/ALFA README: do not hard-code the number of
+ Delphes commits
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01KP5vqAGH2XiGXWtPhaonke
+---
+ examples/ALFA/README.md | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/examples/ALFA/README.md b/examples/ALFA/README.md
+index b070a58..98ce8cb 100644
+--- a/examples/ALFA/README.md
++++ b/examples/ALFA/README.md
+@@ -18,7 +18,7 @@ of the ARC in ALFA_o1_v01 (each on its own gas); the calibration and validation
+ 
+ The cards use the `ARCPID` Delphes module (per-track Cherenkov emulation of the ARC, pi/K/p hypotheses) and its `Track`
+ members. They are not in Delphes master: build Delphes from the ALFA branch (`alfa-arc` of the ALFA Delphes fork,
+-7 commits on delphes/delphes master `b0465ee`):
++based on delphes/delphes master `b0465ee`):
+ 
+ ```bash
+ source /cvmfs/sw.hsf.org/key4hep/setup.sh          # or the nightlies
+-- 
+2.52.0
+

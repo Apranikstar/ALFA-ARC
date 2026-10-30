@@ -1,0 +1,86 @@
+# T14 weaver data config: with ARC PID
+# one entry per Durham jet (ZH, Z->nunu, H->bb/cc/ss/uu/dd/gg at 240 GeV, ALFA Delphes); features from JetFlavourHelper + ARC PID
+treename: tree
+selection: null
+test_time_selection: null
+new_variables:
+   pfcand_mask: ak.ones_like(pfcand_e)
+   # E >= |p| for ParT's rapidity 0.5*ln((E+pz)/(E-pz)): ~1 constituent per 200k jets has pT ~ 1e-9 along -z with E
+   # rounded below |pz| -> NaN rapidity -> NaN through BatchNorm for the whole batch and the running stats
+   pfcand_e_safe: np.maximum(pfcand_e, np.sqrt(pfcand_px**2 + pfcand_py**2 + pfcand_pz**2) * 1.000001)
+preprocess:
+  method: auto
+  data_fraction: 0.1
+inputs:
+   pf_points:
+      length: 64
+      pad_mode: wrap
+      vars:
+         - [pfcand_thetarel, null]
+         - [pfcand_phirel, null]
+   pf_features:
+      length: 64
+      pad_mode: wrap
+      vars:
+         - [pfcand_erel_log, null]
+         - [pfcand_thetarel, null]
+         - [pfcand_phirel, null]
+         - [pfcand_dptdpt, null]
+         - [pfcand_detadeta, null]
+         - [pfcand_dphidphi, null]
+         - [pfcand_dxydxy, null]
+         - [pfcand_dzdz, null]
+         - [pfcand_dxydz, null]
+         - [pfcand_dphidxy, null]
+         - [pfcand_dlambdadz, null]
+         - [pfcand_dxyc, null]
+         - [pfcand_dxyctgtheta, null]
+         - [pfcand_phic, null]
+         - [pfcand_phidz, null]
+         - [pfcand_phictgtheta, null]
+         - [pfcand_cdz, null]
+         - [pfcand_cctgtheta, null]
+         - [pfcand_charge, null]
+         - [pfcand_isMu, null]
+         - [pfcand_isEl, null]
+         - [pfcand_isChargedHad, null]
+         - [pfcand_isGamma, null]
+         - [pfcand_isNeutralHad, null]
+         - [pfcand_dxy, null]
+         - [pfcand_dz, null]
+         - [pfcand_btagSip2dVal, null]
+         - [pfcand_btagSip2dSig, null]
+         - [pfcand_btagSip3dVal, null]
+         - [pfcand_btagSip3dSig, null]
+         - [pfcand_btagJetDistVal, null]
+         - [pfcand_btagJetDistSig, null]
+         - [pfcand_arc_probPi, null]
+         - [pfcand_arc_probK, null]
+         - [pfcand_arc_probP, null]
+         - [pfcand_arc_hasGasRing, null]
+         - [pfcand_arc_hasAeroRing, null]
+   pf_vectors:
+      length: 64
+      pad_mode: wrap
+      vars:
+         - [pfcand_px, null]
+         - [pfcand_py, null]
+         - [pfcand_pz, null]
+         - [pfcand_e_safe, null]
+   pf_mask:
+      length: 64
+      pad_mode: constant
+      vars:
+         - [pfcand_mask, null]
+labels:
+   type: simple
+   value: [recojet_isB, recojet_isC, recojet_isS, recojet_isU, recojet_isD, recojet_isG]
+observers:
+   - jet_e
+   - jet_p
+   - jet_theta
+   - jet_mass
+   - jet_nconst
+   - jet_flavour
+   - event_index
+weights: null

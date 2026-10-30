@@ -1,0 +1,470 @@
+From 101691ff5cd89766d2920c8911dd7d1976e69a50 Mon Sep 17 00:00:00 2001
+From: hfatehi <trialoftheniku@gmail.com>
+Date: Thu, 29 Oct 2026 21:36:41 +0100
+Subject: [PATCH 04/12] ARCPID: optional theta/p-dependent yield scale and
+ single-photon resolution; cards recalibrated (v2)
+
+- ARCPID: GasYieldScaleFormula / AerogelYieldScaleFormula multiply N_sat (L/L_ref) (default 1.0);
+  GasSigmaSingleFormula / AerogelSigmaSingleFormula replace the constant sigma_single when given.
+  Both are evaluated per track like the efficiency formulas and used for the measured ring and for
+  the pi/K/p hypotheses alike.
+- cards: sigma_single = per-track sigma x sqrt(N_pe) from the k4geo full sim (the module's
+  definition), not the raw per-photon rms: gas 1.6 mrad at 90 deg (was 2.4), aerogel 0.3 mrad
+  (chromatic term dominates); theta dependence up to 3.8 / 8.3 mrad at 45 deg. Yield scale from the
+  full-sim ring photons (gas 0.63 at 45 deg). BendingCoefficient 0.145 from the per-track fit.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01KP5vqAGH2XiGXWtPhaonke
+---
+ .gitignore                         |  2 +
+ cards/delphes_card_ALFA_C4F10.tcl  | 62 ++++++++++++++++----
+ cards/delphes_card_ALFA_Xe2bar.tcl | 60 ++++++++++++++++---
+ examples/ALFA/make_cards.py        | 94 ++++++++++++++++++++++--------
+ modules/ARCPID.cc                  | 34 +++++++++--
+ modules/ARCPID.h                   |  5 ++
+ 6 files changed, 209 insertions(+), 48 deletions(-)
+
+diff --git a/.gitignore b/.gitignore
+index df785da..516f45d 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -34,3 +34,5 @@ DelphesSTDHEP
+ DelphesProMC
+ tmp/
+ *.so
++build3.log
++build4.log
+diff --git a/cards/delphes_card_ALFA_C4F10.tcl b/cards/delphes_card_ALFA_C4F10.tcl
+index 0e387e4..087e8f5 100644
+--- a/cards/delphes_card_ALFA_C4F10.tcl
++++ b/cards/delphes_card_ALFA_C4F10.tcl
+@@ -323,31 +323,73 @@ module ARCPID ARCPID {
+   set GasRefractiveIndex 1.001333
+   set GasDnDe 2.25E-5
+   set GasSigmaE 0.667
+-  ## non-chromatic per-photon resolution: standalone ARC cell, no field (sigma1 2.00-2.08 mrad, chromatic 0.29 mrad).
+-  ## No C4F10 full-ALFA geometry exists; the field effect is the BendingCoefficient term, assumed as for Xe.
+-  set GasSigmaSingle 2.0E-3
+-  ## ring photons at beta = 1: 9.4-10.0 standalone (Xe 9.3-10.5 in the same cell) -> same N_sat as Xe
++  ## non-chromatic per-photon resolution: no C4F10 full-ALFA geometry exists. Standalone cell (no field): sigma_eff 1.78 mrad
++  ## non-chromatic vs 1.53 for Xe in the same cell -> the Xe theta dependence x 1.16 (assumption); the field effect is the bending term.
++  ##   90 deg: 1.84 mrad, 75 deg: 1.83 mrad, 60 deg: 1.97 mrad, 45 deg: 4.43 mrad, crack: 2.95 mrad, 30 deg: 2.95 mrad, 20 deg: 1.83 mrad
++  set GasSigmaSingle 1.8E-3
++  set GasSigmaSingleFormula {
++    (abs(eta) <= 0.13) * 0.00184 +
++    (abs(eta) > 0.13 && abs(eta) <= 0.4) * 0.00183 +
++    (abs(eta) > 0.4 && abs(eta) <= 0.72) * 0.00197 +
++    (abs(eta) > 0.72 && abs(eta) <= 0.932) * 0.00443 +
++    (abs(eta) > 0.932 && abs(eta) <= 0.984) * 0.00295 +
++    (abs(eta) > 0.984 && abs(eta) <= 1.52) * 0.00295 +
++    (abs(eta) > 1.52) * 0.00183
++  }
++  ## ring photons at beta = 1: 9.4-10.0 standalone (Xe 9.3-10.5 in the same cell) -> same N_sat and geometry correction as Xe
+   set GasNsat 9.1
+   set GasLref 0.15
+   set GasThickness 0.169
++  ## yield correction to N_sat (L/L_ref): full-sim ring photons / path scaling (light collection falls at oblique angles):
++  ##   90 deg: 1, 75 deg: 1.1, 60 deg: 0.86, 45 deg: 0.63, crack: 0.8, 30 deg: 0.8, 20 deg: 0.99
++  set GasYieldScaleFormula {
++    (abs(eta) <= 0.13) * 1 +
++    (abs(eta) > 0.13 && abs(eta) <= 0.4) * 1.1 +
++    (abs(eta) > 0.4 && abs(eta) <= 0.72) * 0.86 +
++    (abs(eta) > 0.72 && abs(eta) <= 0.932) * 0.63 +
++    (abs(eta) > 0.932 && abs(eta) <= 0.984) * 0.8 +
++    (abs(eta) > 0.984 && abs(eta) <= 1.52) * 0.8 +
++    (abs(eta) > 1.52) * 0.99
++  }
+ 
+   ## aerogel radiator: k4geo Aerogel_PFRICH (design value 1.03 not used by the full sim). n and dn/dE at the detected <E> = 3.0 eV,
+-  ## sigma_E = rms of the detected aerogel spectrum (T12, 90 deg). Chromatic term ~2.7 mrad dominates.
++  ## sigma_E = rms of the detected aerogel spectrum (T12, 90 deg). The chromatic term (~2.7 mrad) dominates.
+   set AerogelRefractiveIndex 1.0193
+   # set AerogelRefractiveIndex 1.03   ;# design value
+   set AerogelDnDe 7.9E-4
+   set AerogelSigmaE 0.655
+-  ## non-chromatic per-photon part: T06 full ALFA, 90 deg (sigma1 3.7 mrad = pixel 1.2 (+) chromatic 2.7 (+) emission 2.4)
+-  set AerogelSigmaSingle 2.6E-3
++  ## non-chromatic per-photon part [rad], = sqrt((sigma_track^2 N_pe) - chromatic^2) from T06; constant fallback and formula per theta:
++  ##   90 deg: 0.3 mrad, 75 deg: 1.89 mrad, 60 deg: 3.06 mrad, 45 deg: 8.32 mrad, crack: 2.19 mrad, 30 deg: 2.19 mrad, 20 deg: 1.12 mrad
++  set AerogelSigmaSingle 0.5E-3
++  set AerogelSigmaSingleFormula {
++    (abs(eta) <= 0.13) * 0.0003 +
++    (abs(eta) > 0.13 && abs(eta) <= 0.4) * 0.00189 +
++    (abs(eta) > 0.4 && abs(eta) <= 0.72) * 0.00306 +
++    (abs(eta) > 0.72 && abs(eta) <= 0.932) * 0.00832 +
++    (abs(eta) > 0.932 && abs(eta) <= 0.984) * 0.00219 +
++    (abs(eta) > 0.984 && abs(eta) <= 1.52) * 0.00219 +
++    (abs(eta) > 1.52) * 0.00112
++  }
+   ## ring photons at beta = 1 (T06 per-photon reco, T12): 7.65 at 90 deg with L = 0.98 cm -> N_sat 7.8 for L_ref 1 cm
+   set AerogelNsat 7.8
+   set AerogelLref 0.01
+   set AerogelThickness 0.0098
++  ## yield correction to N_sat (L/L_ref): full-sim ring photons / path scaling (light collection falls at oblique angles):
++  ##   90 deg: 1, 75 deg: 0.91, 60 deg: 0.78, 45 deg: 0.93, crack: 0.74, 30 deg: 0.74, 20 deg: 0.81
++  set AerogelYieldScaleFormula {
++    (abs(eta) <= 0.13) * 1 +
++    (abs(eta) > 0.13 && abs(eta) <= 0.4) * 0.91 +
++    (abs(eta) > 0.4 && abs(eta) <= 0.72) * 0.78 +
++    (abs(eta) > 0.72 && abs(eta) <= 0.932) * 0.93 +
++    (abs(eta) > 0.932 && abs(eta) <= 0.984) * 0.74 +
++    (abs(eta) > 0.984 && abs(eta) <= 1.52) * 0.74 +
++    (abs(eta) > 1.52) * 0.81
++  }
+ 
+   ## per-photon spread from the track curving across the radiator: sigma_bend = BendingCoefficient * 0.3 * B * L * sin(theta) / p.
+-  ## Fit to the T06 full-ALFA gas sigma1(p), pi/K/p 5-50 GeV: k = 0.19 at 90 deg, 0.19 at 20-30 deg, 0.12-0.17 at 45-75 deg
+-  ## (1/sqrt(12) = 0.29 overestimates). Negligible for the 1 cm aerogel.
+-  set BendingCoefficient 0.19
++  ## Fit of sigma_track^2 N_pe = c0 + (k 0.3 B t / p)^2 to the T06 full-ALFA gas, pi/K/p 7-50 GeV: k = 0.145 at 90 deg (0.14-0.18 at
++  ## 20-75 deg). Negligible for the 1 cm aerogel.
++  set BendingCoefficient 0.145
+ 
+   ## a ring needs at least MinPe photo-electrons (as in the T06 reconstruction)
+   set MinPe 3.0
+diff --git a/cards/delphes_card_ALFA_Xe2bar.tcl b/cards/delphes_card_ALFA_Xe2bar.tcl
+index ef8b618..50da8db 100644
+--- a/cards/delphes_card_ALFA_Xe2bar.tcl
++++ b/cards/delphes_card_ALFA_Xe2bar.tcl
+@@ -323,33 +323,75 @@ module ARCPID ARCPID {
+   set GasRefractiveIndex 1.00132
+   set GasDnDe 6.17E-5
+   set GasSigmaE 0.68
+-  ## non-chromatic per-photon resolution [rad]: constant term of the T06 full-ALFA fit at 90 deg, sqrt(2.53^2 - 0.81^2) = 2.4 mrad
+-  ## (pixel 1.25 (+) emission); 2.35-2.83 mrad over theta 20-90 deg. The 1/p bending part is the BendingCoefficient term below.
+-  set GasSigmaSingle 2.4E-3
++  ## non-chromatic per-photon resolution [rad] (pixel (+) emission), = sqrt(c0 - chromatic^2) from the T06 per-track fit; the 1/p
++  ## bending part is the BendingCoefficient term. Constant fallback (90 deg) and formula per theta:
++  ##   90 deg: 1.59 mrad, 75 deg: 1.58 mrad, 60 deg: 1.7 mrad, 45 deg: 3.82 mrad, crack: 2.54 mrad, 30 deg: 2.54 mrad, 20 deg: 1.58 mrad
++  set GasSigmaSingle 1.6E-3
++  set GasSigmaSingleFormula {
++    (abs(eta) <= 0.13) * 0.00159 +
++    (abs(eta) > 0.13 && abs(eta) <= 0.4) * 0.00158 +
++    (abs(eta) > 0.4 && abs(eta) <= 0.72) * 0.0017 +
++    (abs(eta) > 0.72 && abs(eta) <= 0.932) * 0.00382 +
++    (abs(eta) > 0.932 && abs(eta) <= 0.984) * 0.00254 +
++    (abs(eta) > 0.984 && abs(eta) <= 1.52) * 0.00254 +
++    (abs(eta) > 1.52) * 0.00158
++  }
+   ## ring photons at beta = 1: 10.2 at 90 deg with L = 16.9 cm (T06, T12) -> N_sat 9.1 for L_ref 15 cm.
+   ## Ideal mirror; x 0.90 for a 90% mirror (T07).
+   set GasNsat 9.1
+   set GasLref 0.15
+   ## gas crossed at normal incidence through the k4geo cells (T12 part A): 16.9 cm barrel, 16.7 cm endcap
+   set GasThickness 0.169
++  ## yield correction to N_sat (L/L_ref): full-sim ring photons / path scaling (light collection falls at oblique angles):
++  ##   90 deg: 1, 75 deg: 1.1, 60 deg: 0.86, 45 deg: 0.63, crack: 0.8, 30 deg: 0.8, 20 deg: 0.99
++  set GasYieldScaleFormula {
++    (abs(eta) <= 0.13) * 1 +
++    (abs(eta) > 0.13 && abs(eta) <= 0.4) * 1.1 +
++    (abs(eta) > 0.4 && abs(eta) <= 0.72) * 0.86 +
++    (abs(eta) > 0.72 && abs(eta) <= 0.932) * 0.63 +
++    (abs(eta) > 0.932 && abs(eta) <= 0.984) * 0.8 +
++    (abs(eta) > 0.984 && abs(eta) <= 1.52) * 0.8 +
++    (abs(eta) > 1.52) * 0.99
++  }
+ 
+   ## aerogel radiator: k4geo Aerogel_PFRICH (design value 1.03 not used by the full sim). n and dn/dE at the detected <E> = 3.0 eV,
+-  ## sigma_E = rms of the detected aerogel spectrum (T12, 90 deg). Chromatic term ~2.7 mrad dominates.
++  ## sigma_E = rms of the detected aerogel spectrum (T12, 90 deg). The chromatic term (~2.7 mrad) dominates.
+   set AerogelRefractiveIndex 1.0193
+   # set AerogelRefractiveIndex 1.03   ;# design value
+   set AerogelDnDe 7.9E-4
+   set AerogelSigmaE 0.655
+-  ## non-chromatic per-photon part: T06 full ALFA, 90 deg (sigma1 3.7 mrad = pixel 1.2 (+) chromatic 2.7 (+) emission 2.4)
+-  set AerogelSigmaSingle 2.6E-3
++  ## non-chromatic per-photon part [rad], = sqrt((sigma_track^2 N_pe) - chromatic^2) from T06; constant fallback and formula per theta:
++  ##   90 deg: 0.3 mrad, 75 deg: 1.89 mrad, 60 deg: 3.06 mrad, 45 deg: 8.32 mrad, crack: 2.19 mrad, 30 deg: 2.19 mrad, 20 deg: 1.12 mrad
++  set AerogelSigmaSingle 0.5E-3
++  set AerogelSigmaSingleFormula {
++    (abs(eta) <= 0.13) * 0.0003 +
++    (abs(eta) > 0.13 && abs(eta) <= 0.4) * 0.00189 +
++    (abs(eta) > 0.4 && abs(eta) <= 0.72) * 0.00306 +
++    (abs(eta) > 0.72 && abs(eta) <= 0.932) * 0.00832 +
++    (abs(eta) > 0.932 && abs(eta) <= 0.984) * 0.00219 +
++    (abs(eta) > 0.984 && abs(eta) <= 1.52) * 0.00219 +
++    (abs(eta) > 1.52) * 0.00112
++  }
+   ## ring photons at beta = 1 (T06 per-photon reco, T12): 7.65 at 90 deg with L = 0.98 cm -> N_sat 7.8 for L_ref 1 cm
+   set AerogelNsat 7.8
+   set AerogelLref 0.01
+   set AerogelThickness 0.0098
++  ## yield correction to N_sat (L/L_ref): full-sim ring photons / path scaling (light collection falls at oblique angles):
++  ##   90 deg: 1, 75 deg: 0.91, 60 deg: 0.78, 45 deg: 0.93, crack: 0.74, 30 deg: 0.74, 20 deg: 0.81
++  set AerogelYieldScaleFormula {
++    (abs(eta) <= 0.13) * 1 +
++    (abs(eta) > 0.13 && abs(eta) <= 0.4) * 0.91 +
++    (abs(eta) > 0.4 && abs(eta) <= 0.72) * 0.78 +
++    (abs(eta) > 0.72 && abs(eta) <= 0.932) * 0.93 +
++    (abs(eta) > 0.932 && abs(eta) <= 0.984) * 0.74 +
++    (abs(eta) > 0.984 && abs(eta) <= 1.52) * 0.74 +
++    (abs(eta) > 1.52) * 0.81
++  }
+ 
+   ## per-photon spread from the track curving across the radiator: sigma_bend = BendingCoefficient * 0.3 * B * L * sin(theta) / p.
+-  ## Fit to the T06 full-ALFA gas sigma1(p), pi/K/p 5-50 GeV: k = 0.19 at 90 deg, 0.19 at 20-30 deg, 0.12-0.17 at 45-75 deg
+-  ## (1/sqrt(12) = 0.29 overestimates). Negligible for the 1 cm aerogel.
+-  set BendingCoefficient 0.19
++  ## Fit of sigma_track^2 N_pe = c0 + (k 0.3 B t / p)^2 to the T06 full-ALFA gas, pi/K/p 7-50 GeV: k = 0.145 at 90 deg (0.14-0.18 at
++  ## 20-75 deg). Negligible for the 1 cm aerogel.
++  set BendingCoefficient 0.145
+ 
+   ## a ring needs at least MinPe photo-electrons (as in the T06 reconstruction)
+   set MinPe 3.0
+diff --git a/examples/ALFA/make_cards.py b/examples/ALFA/make_cards.py
+index a0378f7..0430e82 100644
+--- a/examples/ALFA/make_cards.py
++++ b/examples/ALFA/make_cards.py
+@@ -1,27 +1,65 @@
+ """T11: write cards/delphes_card_ALFA_{Xe2bar,C4F10}.tcl from the bundle card, replacing the ARCPID radiator block
+-with the k4geo full-simulation calibration (T05, T06, T11prep, T12, bending fit in work/T11/bending_fit.json)."""
+-import re, sys
++with the k4geo full-simulation calibration (T05, T06, T11prep, T12; work/T11/calib_v2.json).
++
++Calibration v2: sigma_single is the ARCPID definition, per-track sigma x sqrt(N_pe), taken from the T06 per-track resolution
++(robust mean of the photons, two passes of 3-sigma rejection), not from the raw per-photon rms (which includes tails the
++per-track estimator removes). Resolution, photon yield and ring-finding efficiency depend on theta; they are given as
++formulas in |eta| (the Delphes variable) with bins centred on the T06 grid angles theta = 90, 75, 60, 45, 30, 20 deg."""
++
++# |eta| bin edges and the theta [deg] they represent; the 5th bin is the barrel-endcap crack (theta 41.6-43.6 deg)
++EDGES = [0.0, 0.13, 0.40, 0.72, 0.932, 0.984, 1.52, None]
++THETA = ["90 deg", "75 deg", "60 deg", "45 deg", "crack", "30 deg", "20 deg"]
++
++
++def formula(vals, fmt="{:.3g}"):
++    """TFormula string for a step function in |eta| over EDGES."""
++    terms = []
++    for k, v in enumerate(vals):
++        lo, hi = EDGES[k], EDGES[k + 1]
++        cond = f"(abs(eta) > {lo})" if hi is None else (f"(abs(eta) <= {hi})" if lo == 0 else f"(abs(eta) > {lo} && abs(eta) <= {hi})")
++        terms.append(f"    {cond} * {fmt.format(v)}")
++    return "{\n" + " +\n".join(terms) + "\n  }"
++
++
++def table(vals, unit=""):
++    return "  ##   " + ", ".join(f"{t}: {v:g}{unit}" for t, v in zip(THETA, vals))
++
++
++# T06 (Xe 2 bar, full ALFA, 3 T): full-sim ring photons at beta = 1 over the card's N_sat (L/L_ref) with L = t/sin or t/|cos|
++GAS_YIELD = [1.00, 1.10, 0.86, 0.63, 0.80, 0.80, 0.99]
++AERO_YIELD = [1.00, 0.91, 0.78, 0.93, 0.74, 0.74, 0.81]
++# non-chromatic part of sigma_track x sqrt(N_pe) [mrad]; gas: constant of the fit c0 + (k 0.3 B t / p)^2, aerogel: rms over p (bending negligible)
++GAS_S1_XE = [1.59, 1.58, 1.70, 3.82, 2.54, 2.54, 1.58]
++AERO_S1 = [0.3, 1.89, 3.06, 8.32, 2.19, 2.19, 1.12]   # 0.3 = floor at 90 deg where the chromatic term alone (2.68) saturates the measurement (2.65)
++# standalone ARC cell (T11prep, no field): non-chromatic sigma_eff C4F10 1.78, Xe 1.53 mrad -> C4F10 = Xe x 1.16 at every theta (assumption)
++GAS_S1_C4F10 = [round(1.16 * v, 2) for v in GAS_S1_XE]
++
+ src = open("cards/delphes_card_ALFA.tcl").read()
+ i = src.index("  ## gas radiator:"); j = src.index("\n", src.index("set AerogelEfficiencyFormula")) + 1
+ 
+-COMMON = """
++COMMON = f"""
+   ## aerogel radiator: k4geo Aerogel_PFRICH (design value 1.03 not used by the full sim). n and dn/dE at the detected <E> = 3.0 eV,
+-  ## sigma_E = rms of the detected aerogel spectrum (T12, 90 deg). Chromatic term ~2.7 mrad dominates.
++  ## sigma_E = rms of the detected aerogel spectrum (T12, 90 deg). The chromatic term (~2.7 mrad) dominates.
+   set AerogelRefractiveIndex 1.0193
+   # set AerogelRefractiveIndex 1.03   ;# design value
+   set AerogelDnDe 7.9E-4
+   set AerogelSigmaE 0.655
+-  ## non-chromatic per-photon part: T06 full ALFA, 90 deg (sigma1 3.7 mrad = pixel 1.2 (+) chromatic 2.7 (+) emission 2.4)
+-  set AerogelSigmaSingle 2.6E-3
++  ## non-chromatic per-photon part [rad], = sqrt((sigma_track^2 N_pe) - chromatic^2) from T06; constant fallback and formula per theta:
++{table(AERO_S1, ' mrad')}
++  set AerogelSigmaSingle 0.5E-3
++  set AerogelSigmaSingleFormula {formula([v * 1e-3 for v in AERO_S1])}
+   ## ring photons at beta = 1 (T06 per-photon reco, T12): 7.65 at 90 deg with L = 0.98 cm -> N_sat 7.8 for L_ref 1 cm
+   set AerogelNsat 7.8
+   set AerogelLref 0.01
+   set AerogelThickness 0.0098
++  ## yield correction to N_sat (L/L_ref): full-sim ring photons / path scaling (light collection falls at oblique angles):
++{table(AERO_YIELD)}
++  set AerogelYieldScaleFormula {formula(AERO_YIELD)}
+ 
+   ## per-photon spread from the track curving across the radiator: sigma_bend = BendingCoefficient * 0.3 * B * L * sin(theta) / p.
+-  ## Fit to the T06 full-ALFA gas sigma1(p), pi/K/p 5-50 GeV: k = 0.19 at 90 deg, 0.19 at 20-30 deg, 0.12-0.17 at 45-75 deg
+-  ## (1/sqrt(12) = 0.29 overestimates). Negligible for the 1 cm aerogel.
+-  set BendingCoefficient 0.19
++  ## Fit of sigma_track^2 N_pe = c0 + (k 0.3 B t / p)^2 to the T06 full-ALFA gas, pi/K/p 7-50 GeV: k = 0.145 at 90 deg (0.14-0.18 at
++  ## 20-75 deg). Negligible for the 1 cm aerogel.
++  set BendingCoefficient 0.145
+ 
+   ## a ring needs at least MinPe photo-electrons (as in the T06 reconstruction)
+   set MinPe 3.0
+@@ -32,51 +70,59 @@ COMMON = """
+ 
+   ## ring-finding efficiency vs |eta| from T06 (per-photon reconstruction, beta = 1, theta = 90/75/60/45/30/20 deg; ~+-0.03 stat).
+   ## Aerogel: barrel-endcap crack theta 41-43 deg (|eta| 0.932-0.984), path -> 0 (T12 part A). The gas path is continuous.
+-  set GasEfficiencyFormula {
++  set GasEfficiencyFormula {{
+     (abs(eta) <= 0.40) * 0.97 +
+     (abs(eta) > 0.40 && abs(eta) <= 0.72) * 1.00 +
+     (abs(eta) > 0.72 && abs(eta) <= 1.10) * 0.81 +
+     (abs(eta) > 1.10 && abs(eta) <= 1.50) * 0.79 +
+     (abs(eta) > 1.50) * 1.00
+-  }
+-  set AerogelEfficiencyFormula {
++  }}
++  set AerogelEfficiencyFormula {{
+     (abs(eta) <= 0.40) * 0.96 +
+     (abs(eta) > 0.40 && abs(eta) <= 0.72) * 0.67 +
+     (abs(eta) > 0.72 && abs(eta) <= 0.932) * 0.95 +
+     (abs(eta) > 0.932 && abs(eta) <= 0.984) * 0.00 +
+     (abs(eta) > 0.984 && abs(eta) <= 1.50) * 0.86 +
+     (abs(eta) > 1.50) * 0.90
+-  }
++  }}
++"""
++GAS_YIELD_BLOCK = f"""  ## yield correction to N_sat (L/L_ref): full-sim ring photons / path scaling (light collection falls at oblique angles):
++{table(GAS_YIELD)}
++  set GasYieldScaleFormula {formula(GAS_YIELD)}
+ """
+ GAS = {
+- "Xe2bar": """  ## gas radiator: xenon at 2 bar, 293.15 K (k4geo Xenon_ARC, ALFA_o1_v01). n and dn/dE at the PDE-weighted mean detected photon
++ "Xe2bar": f"""  ## gas radiator: xenon at 2 bar, 293.15 K (k4geo Xenon_ARC, ALFA_o1_v01). n and dn/dE at the PDE-weighted mean detected photon
+   ## energy <E> = 3.02 eV (T11prep), sigma_E = rms of the detected gas spectrum (T12). Thresholds pi/K/p = 2.71 / 9.59 / 18.2 GeV.
+   set GasRefractiveIndex 1.00132
+   set GasDnDe 6.17E-5
+   set GasSigmaE 0.68
+-  ## non-chromatic per-photon resolution [rad]: constant term of the T06 full-ALFA fit at 90 deg, sqrt(2.53^2 - 0.81^2) = 2.4 mrad
+-  ## (pixel 1.25 (+) emission); 2.35-2.83 mrad over theta 20-90 deg. The 1/p bending part is the BendingCoefficient term below.
+-  set GasSigmaSingle 2.4E-3
++  ## non-chromatic per-photon resolution [rad] (pixel (+) emission), = sqrt(c0 - chromatic^2) from the T06 per-track fit; the 1/p
++  ## bending part is the BendingCoefficient term. Constant fallback (90 deg) and formula per theta:
++{table(GAS_S1_XE, ' mrad')}
++  set GasSigmaSingle 1.6E-3
++  set GasSigmaSingleFormula {formula([v * 1e-3 for v in GAS_S1_XE])}
+   ## ring photons at beta = 1: 10.2 at 90 deg with L = 16.9 cm (T06, T12) -> N_sat 9.1 for L_ref 15 cm.
+   ## Ideal mirror; x 0.90 for a 90% mirror (T07).
+   set GasNsat 9.1
+   set GasLref 0.15
+   ## gas crossed at normal incidence through the k4geo cells (T12 part A): 16.9 cm barrel, 16.7 cm endcap
+   set GasThickness 0.169
+-""",
+- "C4F10": """  ## gas radiator: C4F10 at 1 bar (k4geo C4F10_PFRICH table), for comparison with the July 2026 study. n and dn/dE at the
++""" + GAS_YIELD_BLOCK,
++ "C4F10": f"""  ## gas radiator: C4F10 at 1 bar (k4geo C4F10_PFRICH table), for comparison with the July 2026 study. n and dn/dE at the
+   ## PDE-weighted mean detected photon energy <E> = 3.05 eV, sigma_E = rms of the detected spectrum (T11prep, standalone ARC cell).
+   set GasRefractiveIndex 1.001333
+   set GasDnDe 2.25E-5
+   set GasSigmaE 0.667
+-  ## non-chromatic per-photon resolution: standalone ARC cell, no field (sigma1 2.00-2.08 mrad, chromatic 0.29 mrad).
+-  ## No C4F10 full-ALFA geometry exists; the field effect is the BendingCoefficient term, assumed as for Xe.
+-  set GasSigmaSingle 2.0E-3
+-  ## ring photons at beta = 1: 9.4-10.0 standalone (Xe 9.3-10.5 in the same cell) -> same N_sat as Xe
++  ## non-chromatic per-photon resolution: no C4F10 full-ALFA geometry exists. Standalone cell (no field): sigma_eff 1.78 mrad
++  ## non-chromatic vs 1.53 for Xe in the same cell -> the Xe theta dependence x 1.16 (assumption); the field effect is the bending term.
++{table(GAS_S1_C4F10, ' mrad')}
++  set GasSigmaSingle 1.8E-3
++  set GasSigmaSingleFormula {formula([v * 1e-3 for v in GAS_S1_C4F10])}
++  ## ring photons at beta = 1: 9.4-10.0 standalone (Xe 9.3-10.5 in the same cell) -> same N_sat and geometry correction as Xe
+   set GasNsat 9.1
+   set GasLref 0.15
+   set GasThickness 0.169
+-"""}
++""" + GAS_YIELD_BLOCK}
+ for v, g in GAS.items():
+     out = src[:i] + g + COMMON + src[j:]
+     out = f"# ALFA Delphes card, ARC gas variant: {v} (generated by examples/ALFA/make_cards.py from delphes_card_ALFA.tcl)\n" + out
+diff --git a/modules/ARCPID.cc b/modules/ARCPID.cc
+index 9ee412a..8c384b3 100644
+--- a/modules/ARCPID.cc
++++ b/modules/ARCPID.cc
+@@ -53,6 +53,10 @@ ARCPID::ARCPID()
+ {
+   fGasEfficiency = make_unique<DelphesFormula>();
+   fAerogelEfficiency = make_unique<DelphesFormula>();
++  fGasYieldScale = make_unique<DelphesFormula>();
++  fAerogelYieldScale = make_unique<DelphesFormula>();
++  fGasSigmaSingleFormula = make_unique<DelphesFormula>();
++  fAerogelSigmaSingleFormula = make_unique<DelphesFormula>();
+ }
+ 
+ //------------------------------------------------------------------------------
+@@ -111,6 +115,17 @@ void ARCPID::Init()
+   fGasEfficiency->Compile(GetString("GasEfficiencyFormula", "1.0"));
+   fAerogelEfficiency->Compile(GetString("AerogelEfficiencyFormula", "1.0"));
+ 
++  // photon-yield correction as a function of (pt, eta): the light collection is not proportional to the path at all angles
++  fGasYieldScale->Compile(GetString("GasYieldScaleFormula", "1.0"));
++  fAerogelYieldScale->Compile(GetString("AerogelYieldScaleFormula", "1.0"));
++
++  // optional angle/momentum-dependent non-chromatic single-photon resolution; empty = the constant GasSigmaSingle / AerogelSigmaSingle
++  TString gasS1 = GetString("GasSigmaSingleFormula", ""), aeroS1 = GetString("AerogelSigmaSingleFormula", "");
++  fUseSigmaSingleFormula[kGas] = gasS1.Length() > 0;
++  fUseSigmaSingleFormula[kAerogel] = aeroS1.Length() > 0;
++  if(fUseSigmaSingleFormula[kGas]) fGasSigmaSingleFormula->Compile(gasS1);
++  if(fUseSigmaSingleFormula[kAerogel]) fAerogelSigmaSingleFormula->Compile(aeroS1);
++
+   fInputArray = ImportArray(GetString("InputArray", "TrackSmearing/tracks"));
+   fItInputArray.reset(fInputArray->MakeIterator());
+ 
+@@ -233,7 +248,14 @@ void ARCPID::Process()
+     {
+       Double_t beta = pTrue / TMath::Sqrt(pTrue * pTrue + mass * mass);
+ 
+-      Double_t trueAngle[2], recoAngle[2], sigma[2], npe[2], bend[2];
++      Double_t trueAngle[2], recoAngle[2], sigma[2], npe[2], bend[2], yieldScale[2];
++      RadiatorParams rad[2] = {fRad[kGas], fRad[kAerogel]}; // per-track copy (sigma_single may depend on the track)
++      for(int i = 0; i < 2; ++i)
++      {
++        if(!fUseSigmaSingleFormula[i]) continue;
++        DelphesFormula *s1f = (i == kGas) ? fGasSigmaSingleFormula.get() : fAerogelSigmaSingleFormula.get();
++        rad[i].sigmaSingle = TMath::Max(0.0, s1f->Eval(pt, eta, trueMomentum.Phi(), trueMomentum.E(), candidate));
++      }
+       Bool_t usable[2];
+ 
+       for(int i = 0; i < 2; ++i)
+@@ -242,7 +264,9 @@ void ARCPID::Process()
+         // direction change of the track across the radiator: 0.3 B L_T / p with L_T the transverse projection [rad]
+         bend[i] = fBendingCoefficient * 0.3 * TMath::Abs(fBz) * L * TMath::Abs(TMath::Sin(theta)) / pTrue;
+         trueAngle[i] = CherenkovAngle(fRad[i], beta);
+-        npe[i] = ExpectedNpe(fRad[i], beta, L);
++        DelphesFormula *scale = (i == kGas) ? fGasYieldScale.get() : fAerogelYieldScale.get();
++        yieldScale[i] = TMath::Max(0.0, scale->Eval(pt, eta, trueMomentum.Phi(), trueMomentum.E(), candidate));
++        npe[i] = yieldScale[i] * ExpectedNpe(fRad[i], beta, L);
+         if(fPoissonFluctuation && npe[i] > 0.0) npe[i] = gRandom->Poisson(npe[i]);
+ 
+         DelphesFormula *eff = (i == kGas) ? fGasEfficiency.get() : fAerogelEfficiency.get();
+@@ -253,7 +277,7 @@ void ARCPID::Process()
+         sigma[i] = -1.0;
+         if(usable[i])
+         {
+-          sigma[i] = SigmaTrack(fRad[i], trueAngle[i], npe[i], bend[i]);
++          sigma[i] = SigmaTrack(rad[i], trueAngle[i], npe[i], bend[i]);
+           recoAngle[i] = gRandom->Gaus(trueAngle[i], sigma[i]);
+         }
+       }
+@@ -287,12 +311,12 @@ void ARCPID::Process()
+           {
+             Double_t L = fRad[i].thickness * pathFactor;
+             Double_t angH = CherenkovAngle(fRad[i], betaH);
+-            Double_t npeH = ExpectedNpe(fRad[i], betaH, L);
++            Double_t npeH = yieldScale[i] * ExpectedNpe(fRad[i], betaH, L);
+             Bool_t ringExpected = (angH > 0.0) && (npeH >= fMinPe);
+ 
+             if(usable[i] && ringExpected)
+             {
+-              Double_t sigH = SigmaTrack(fRad[i], angH, npeH, bend[i]);
++              Double_t sigH = SigmaTrack(rad[i], angH, npeH, bend[i]);
+               Double_t d = (recoAngle[i] - angH) / sigH;
+               c2 += d * d;
+             }
+diff --git a/modules/ARCPID.h b/modules/ARCPID.h
+index 0ba7e52..2552e63 100644
+--- a/modules/ARCPID.h
++++ b/modules/ARCPID.h
+@@ -114,6 +114,11 @@ private:
+ 
+   std::unique_ptr<DelphesFormula> fGasEfficiency; //! ring-finding efficiency, gas (eta, pt)
+   std::unique_ptr<DelphesFormula> fAerogelEfficiency; //! ring-finding efficiency, aerogel (eta, pt)
++  std::unique_ptr<DelphesFormula> fGasYieldScale; //! photon-yield correction to N_sat (L/L_ref), gas (eta, pt); 1 = pure path scaling
++  std::unique_ptr<DelphesFormula> fAerogelYieldScale; //! photon-yield correction, aerogel (eta, pt)
++  std::unique_ptr<DelphesFormula> fGasSigmaSingleFormula; //! non-chromatic single-photon resolution [rad] vs (eta, pt); replaces GasSigmaSingle if set
++  std::unique_ptr<DelphesFormula> fAerogelSigmaSingleFormula; //! same for the aerogel
++  Bool_t fUseSigmaSingleFormula[2]; // a SigmaSingleFormula was given in the card (gas, aerogel)
+ 
+   std::unique_ptr<TIterator> fItInputArray; //!
+   const TObjArray *fInputArray = nullptr; //!
+-- 
+2.52.0
+

@@ -1,0 +1,14 @@
+# T17 (campaign_v2) ZH -> nunu jj production with the v4 cards: 2 cards x 6 decays x 25 chunks x 10k events
+executable            = /afs/cern.ch/work/h/hfatehi/alfa/condor/T17/prod_job.sh
+arguments             = $(card) $(decay) $(chunk)
+output                = /afs/cern.ch/work/h/hfatehi/alfa/condor/T17/logs/prod_$(card)_$(decay)_$(chunk).out
+error                 = /afs/cern.ch/work/h/hfatehi/alfa/condor/T17/logs/prod_$(card)_$(decay)_$(chunk).err
+log                   = /afs/cern.ch/work/h/hfatehi/alfa/condor/T17/logs/prod.log
+request_cpus          = 1
+request_memory        = 3000MB
+request_disk          = 4GB
++JobFlavour           = "workday"
++AccountingGroup      = "group_u_FCC.local_gen"
+should_transfer_files = YES
+max_retries           = 2
+queue card, decay, chunk from /afs/cern.ch/work/h/hfatehi/alfa/condor/T17/prod_list.txt

@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+*.root
+*.pkl
+*.npz
+*.so
+*.d
+*.pcm

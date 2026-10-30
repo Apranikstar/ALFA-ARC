@@ -1,0 +1,121 @@
+From 79eda3138b13f39f0d1c57a81047b84125ba8d66 Mon Sep 17 00:00:00 2001
+From: hfatehi <trialoftheniku@gmail.com>
+Date: Thu, 29 Oct 2026 17:50:11 +0100
+Subject: [PATCH 2/5] plugins: add ARCPhotonDetectionFilter for the ARC SiPM
+ efficiency
+
+Sensitive-detector filter that keeps an optical photon reaching an ARC
+sensor with probability PDE(E) and kills it otherwise. Needed because the
+ARC setup runs with BoundaryInvokeSD = false, so a surface EFFICIENCY is
+never applied by Geant4. Default table: ARC_SiPM_QuantumEfficiency.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01KP5vqAGH2XiGXWtPhaonke
+---
+ CMakeLists.txt                       |  1 +
+ plugins/ARCPhotonDetectionFilter.cpp | 81 ++++++++++++++++++++++++++++
+ 2 files changed, 82 insertions(+)
+ create mode 100644 plugins/ARCPhotonDetectionFilter.cpp
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 20d34c00..b0c4a357 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -100,6 +100,7 @@ file(GLOB G4sources
+   ./plugins/SCEPCal_TimingSDAction.cpp
+   ./plugins/GrainitaCaloSDAction.h
+   ./plugins/GrainitaCaloSDAction.cpp
++  ./plugins/ARCPhotonDetectionFilter.cpp
+ )
+ 
+ if(DD4HEP_USE_PYROOT)
+diff --git a/plugins/ARCPhotonDetectionFilter.cpp b/plugins/ARCPhotonDetectionFilter.cpp
+new file mode 100644
+index 00000000..8fc1b258
+--- /dev/null
++++ b/plugins/ARCPhotonDetectionFilter.cpp
+@@ -0,0 +1,81 @@
++//==========================================================================
++//  ARCPhotonDetectionFilter
++//--------------------------------------------------------------------------
++//  Sensitive-detector filter for the ARC SiPMs: an optical photon reaching
++//  the sensor is kept with probability PDE(E) and otherwise killed, so the
++//  raw ARC hits are already PDE-selected.
++//
++//  The ARC example runs with BoundaryInvokeSD = false (see example/arcfullsim.py),
++//  so a surface EFFICIENCY on the sensor is never applied by Geant4; this filter
++//  takes its place. Non-optical particles always pass.
++//
++//  Properties:
++//    Energies     photon energies [eV], ascending
++//    Efficiencies detection efficiency at each energy (0 outside the range)
++//
++//  Default table: ARC_SiPM_QuantumEfficiency from materials_arc_o1_v01.xml
++//  (FBK NUV-HD, Gola et al., Sensors 19 (2019) 308, with 5% extra loss).
++//==========================================================================
++
++#include "DD4hep/InstanceCount.h"
++#include "DDG4/Factories.h"
++#include "DDG4/Geant4SensDetAction.h"
++
++#include "CLHEP/Units/SystemOfUnits.h"
++#include "G4OpticalPhoton.hh"
++#include "G4Step.hh"
++#include "G4Track.hh"
++#include "Randomize.hh"
++
++#include <algorithm>
++#include <stdexcept>
++#include <vector>
++
++namespace dd4hep {
++  namespace sim {
++
++    class ARCPhotonDetectionFilter : public Geant4Filter {
++    protected:
++      std::vector<double> m_energies{1.1, 1.3, 1.550, 1.771, 2.101, 2.465, 2.655, 2.743, 2.837, 2.938, 3.002,
++                                     3.084, 3.163, 3.378, 3.647, 3.850, 4.147, 4.320, 4.5, 4.7, 4.9};
++      std::vector<double> m_efficiencies{0.0,  0.0,  0.13, 0.26, 0.4,  0.51, 0.53, 0.56, 0.57, 0.59, 0.6,
++                                         0.6,  0.59, 0.52, 0.47, 0.46, 0.41, 0.2,  0.1,  0.0,  0.0};
++
++      double efficiency(double e_eV) const {
++        if (m_energies.empty() || e_eV < m_energies.front() || e_eV > m_energies.back())
++          return 0.0;
++        auto it = std::upper_bound(m_energies.begin(), m_energies.end(), e_eV);
++        if (it == m_energies.end())
++          return m_efficiencies.back();
++        const std::size_t i = std::distance(m_energies.begin(), it);
++        const double f = (e_eV - m_energies[i - 1]) / (m_energies[i] - m_energies[i - 1]);
++        return m_efficiencies[i - 1] + f * (m_efficiencies[i] - m_efficiencies[i - 1]);
++      }
++
++    public:
++      ARCPhotonDetectionFilter(Geant4Context* context, const std::string& name) : Geant4Filter(context, name) {
++        declareProperty("Energies", m_energies);
++        declareProperty("Efficiencies", m_efficiencies);
++        InstanceCount::increment(this);
++      }
++
++      virtual ~ARCPhotonDetectionFilter() { InstanceCount::decrement(this); }
++
++      virtual bool operator()(const G4Step* step) const override {
++        if (m_energies.size() != m_efficiencies.size())
++          throw std::runtime_error("ARCPhotonDetectionFilter: Energies and Efficiencies differ in length");
++        G4Track* track = step->GetTrack();
++        if (track->GetDefinition() != G4OpticalPhoton::OpticalPhotonDefinition())
++          return true;
++        if (G4UniformRand() < efficiency(track->GetTotalEnergy() / CLHEP::eV))
++          return true;
++        // not detected: stop the photon so a later step in the sensor cannot be accepted instead
++        track->SetTrackStatus(fStopAndKill);
++        return false;
++      }
++    };
++
++  } // namespace sim
++} // namespace dd4hep
++
++DECLARE_GEANT4ACTION_NS(dd4hep::sim, ARCPhotonDetectionFilter)
+-- 
+2.52.0
+

@@ -1,0 +1,20 @@
+# T17 (campaign_v2): ParT jet-flavour trainings on the v4-card samples (baseline, Xe2bar + ARC, C4F10 + ARC), FCC group quota, high priority.
+executable            = /afs/cern.ch/work/h/hfatehi/alfa/condor/T17/train_condor.sh
+arguments             = $(name) $(card) $(cfg) $(epochs)
+output                = /afs/cern.ch/work/h/hfatehi/alfa/condor/T17/logs/$(name).$(ClusterId).out
+error                 = /afs/cern.ch/work/h/hfatehi/alfa/condor/T17/logs/$(name).$(ClusterId).err
+log                   = /afs/cern.ch/work/h/hfatehi/alfa/condor/T17/logs/train.log
+request_gpus          = 1
+request_cpus          = 8
+request_memory        = 32 GB
++JobFlavour           = "nextweek"
+priority              = 20
+# ---------- accounting ----------
+# Charges the campaign to the FCC group quota rather than the personal share.
++AccountingGroup = "group_u_FCC.local_gen"
+should_transfer_files = YES
+queue name, card, cfg, epochs from (
+  part_baseline_Xe2bar Xe2bar baseline 15
+  part_arc_Xe2bar Xe2bar arc 15
+  part_arc_C4F10 C4F10 arc 15
+)

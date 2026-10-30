@@ -1,0 +1,44 @@
+From c70e401463c115716801f21613c2a768b0d20259 Mon Sep 17 00:00:00 2001
+From: hfatehi <trialoftheniku@gmail.com>
+Date: Thu, 29 Oct 2026 20:37:05 +0100
+Subject: [PATCH 02/12] TreeWriter: fill the ARC members on Track only
+
+ParticleFlowCandidate has no ARC members (the bundle adds them to Candidate and
+Track); the bundle's second filler block did not compile.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01KP5vqAGH2XiGXWtPhaonke
+---
+ modules/TreeWriter.cc | 16 ----------------
+ 1 file changed, 16 deletions(-)
+
+diff --git a/modules/TreeWriter.cc b/modules/TreeWriter.cc
+index 5b99757..ff5d0a4 100644
+--- a/modules/TreeWriter.cc
++++ b/modules/TreeWriter.cc
+@@ -580,22 +580,6 @@ void TreeWriter::ProcessParticleFlowCandidates(ExRootTreeBranch *branch, TObjArr
+     entry->DZ = candidate->DZ;
+     entry->Nclusters = candidate->Nclusters;
+     entry->dNdx = candidate->dNdx;
+-    entry->CherenkovAngleGas = candidate->CherenkovAngleGas;
+-    entry->CherenkovAngleAerogel = candidate->CherenkovAngleAerogel;
+-    entry->CherenkovRecoAngleGas = candidate->CherenkovRecoAngleGas;
+-    entry->CherenkovRecoAngleAerogel = candidate->CherenkovRecoAngleAerogel;
+-    entry->SigmaThetaCGas = candidate->SigmaThetaCGas;
+-    entry->SigmaThetaCAerogel = candidate->SigmaThetaCAerogel;
+-    entry->NpeGas = candidate->NpeGas;
+-    entry->NpeAerogel = candidate->NpeAerogel;
+-    entry->ARCchi2Pi = candidate->ARCchi2Pi;
+-    entry->ARCchi2K = candidate->ARCchi2K;
+-    entry->ARCchi2P = candidate->ARCchi2P;
+-    entry->ARCpid = candidate->ARCpid;
+-    entry->ARCprobPi = candidate->ARCprobPi;
+-    entry->ARCprobK = candidate->ARCprobK;
+-    entry->ARCprobP = candidate->ARCprobP;
+-    entry->ARCmass = candidate->ARCmass;
+ 
+     entry->ErrorP = candidate->ErrorP;
+     entry->ErrorPT = candidate->ErrorPT;
+-- 
+2.52.0
+

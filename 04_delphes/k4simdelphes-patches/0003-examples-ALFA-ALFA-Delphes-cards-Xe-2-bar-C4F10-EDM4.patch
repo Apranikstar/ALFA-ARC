@@ -1,0 +1,2208 @@
+From 97977ff5f70c80a1c3eeaec8369c22cc3f78815d Mon Sep 17 00:00:00 2001
+From: hfatehi <trialoftheniku@gmail.com>
+Date: Fri, 30 Oct 2026 02:58:28 +0100
+Subject: [PATCH 3/8] examples/ALFA: ALFA Delphes cards (Xe 2 bar, C4F10),
+ EDM4hep output config, ZH production
+
+Delphes cards of the ALFA FCC-ee detector with the ARC (two gas variants, calibrated on the k4geo
+full simulation), the matching EDM4hep output configuration, a Pythia8 ZH(nu nu, H -> xx) template
+and produce_zh.sh; README with the Delphes (ARCPID) requirement, build, run and output content.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01KP5vqAGH2XiGXWtPhaonke
+---
+ examples/ALFA/README.md                       |   73 ++
+ .../ALFA/cards/delphes_card_ALFA_C4F10.tcl    | 1008 +++++++++++++++++
+ .../ALFA/cards/delphes_card_ALFA_Xe2bar.tcl   | 1007 ++++++++++++++++
+ examples/ALFA/edm4hep_output_config_ALFA.tcl  |   12 +
+ examples/ALFA/produce_zh.sh                   |   26 +
+ examples/ALFA/pythia/zh_Hxx_template.cmnd     |   16 +
+ 6 files changed, 2142 insertions(+)
+ create mode 100644 examples/ALFA/README.md
+ create mode 100644 examples/ALFA/cards/delphes_card_ALFA_C4F10.tcl
+ create mode 100644 examples/ALFA/cards/delphes_card_ALFA_Xe2bar.tcl
+ create mode 100644 examples/ALFA/edm4hep_output_config_ALFA.tcl
+ create mode 100755 examples/ALFA/produce_zh.sh
+ create mode 100644 examples/ALFA/pythia/zh_Hxx_template.cmnd
+
+diff --git a/examples/ALFA/README.md b/examples/ALFA/README.md
+new file mode 100644
+index 0000000..b070a58
+--- /dev/null
++++ b/examples/ALFA/README.md
+@@ -0,0 +1,73 @@
++# ALFA: EDM4hep production with the ARC particle identification
++
++Delphes cards of the ALFA detector concept (FCC-ee) with the ARC RICH, in two gas variants, and everything needed to
++produce EDM4hep files with k4SimDelphes, including the ARC particle-ID of every track.
++
++| file | content |
++|---|---|
++| `cards/delphes_card_ALFA_Xe2bar.tcl` | ALFA, ARC gas = xenon at 2 bar (main design) |
++| `cards/delphes_card_ALFA_C4F10.tcl` | ALFA, ARC gas = C4F10 at 1 bar (comparison) |
++| `edm4hep_output_config_ALFA.tcl` | k4SimDelphes output configuration for the ALFA cards |
++| `pythia/zh_Hxx_template.cmnd` | Pythia8: e+e- -> ZH at 240 GeV, Z -> nu nu, H -> xx (placeholders filled by the script) |
++| `produce_zh.sh` | one EDM4hep file: `produce_zh.sh <Xe2bar\|C4F10> <bb\|cc\|ss\|uu\|dd\|gg> <chunk> <nevents> <out.root>` |
++
++The two cards are identical except for the `ARCPID` block. Both are calibrated on a cell-averaged k4geo full simulation
++of the ARC in ALFA_o1_v01 (each on its own gas); the calibration and validation are documented in the ALFA ARC study.
++
++## Requirements: Delphes with the ARCPID module
++
++The cards use the `ARCPID` Delphes module (per-track Cherenkov emulation of the ARC, pi/K/p hypotheses) and its `Track`
++members. They are not in Delphes master: build Delphes from the ALFA branch (`alfa-arc` of the ALFA Delphes fork,
++7 commits on delphes/delphes master `b0465ee`):
++
++```bash
++source /cvmfs/sw.hsf.org/key4hep/setup.sh          # or the nightlies
++git clone -b alfa-arc https://github.com/apranikstar/delphes.git delphes-alfa
++cd delphes-alfa && ./configure && make -j8 && cd ..
++```
++
++## Build k4SimDelphes against it
++
++```bash
++git clone -b alfa https://github.com/apranikstar/k4SimDelphes.git && cd k4SimDelphes
++mkdir build && cd build
++cmake .. -DCMAKE_INSTALL_PREFIX=../install -DBUILD_FRAMEWORK=OFF -DBUILD_EVTGEN_READER=OFF -DBUILD_TESTING=OFF \
++         -DDELPHES_LIBRARY=$PWD/../../delphes-alfa/libDelphes.so \
++         -DDELPHES_INCLUDE_DIR=$PWD/../../delphes-alfa \
++         -DDELPHES_EXTERNALS_INCLUDE_DIR=$PWD/../../delphes-alfa/external
++make -j8 install
++```
++
++CMake prints `Delphes has ARCPID: EFlowTrack_PID filled with the ARC hypotheses` when the ARC members are found.
++Pass the Delphes paths explicitly: otherwise the Delphes of the key4hep stack (without ARCPID) may be picked up.
++The installed binaries carry the right RPATH (this branch fixes the install RPATH to `lib64` on EL9), so no
++`LD_LIBRARY_PATH` or `LD_PRELOAD` is needed.
++
++## Run
++
++```bash
++K4SIMDELPHES_BIN=$PWD/install/bin/DelphesPythia8_EDM4HEP \
++  examples/ALFA/produce_zh.sh Xe2bar bb 0 10000 Hbb_Xe2bar_0.edm4hep.root
++```
++
++About 100 events/s per core. The Pythia seed depends only on (decay, chunk): Xe2bar and C4F10 files of the same chunk
++contain the same generated events. The usual k4SimDelphes command also works with any Pythia card:
++`DelphesPythia8_EDM4HEP cards/delphes_card_ALFA_Xe2bar.tcl edm4hep_output_config_ALFA.tcl <pythia.cmnd> <out.root>`.
++
++## Output
++
++The standard k4SimDelphes collections (`ReconstructedParticles`, `EFlowTrack` with track states and covariance,
++`EFlowPhoton`, `EFlowNeutralHadron`, `Particle`, `RecoMCLink`, `Jet`, `Muon`, `Electron`, `Photon`, `MissingET`,
++`magFieldBz`, ...), plus the ARC result in **`EFlowTrack_PID`**: one `edm4hep::ParticleID` per track, linked to its
++`ReconstructedParticle` (`particle` relation), with
++
++| field | meaning |
++|---|---|
++| `type`, `algorithmType` | 1023 (ARC) |
++| `PDG` | best pi/K/p hypothesis (signed), 0 = no ring in either radiator |
++| `likelihood` | P(K) |
++| `parameters[0..9]` | P(pi), P(K), P(p), measured Cherenkov angle gas / aerogel [rad], per-track resolution gas / aerogel [rad], expected photons gas / aerogel, mass of the best hypothesis [GeV]; -1 = no ring |
++
++The probabilities are exp(-chi2/2) normalised over the three hypotheses with equal priors. In FCCAnalyses, the
++parameters are read from `EFlowTrack_PID`, `_EFlowTrack_PID_particle` (index into `ReconstructedParticles`) and
++`_EFlowTrack_PID_parameters`.
+diff --git a/examples/ALFA/cards/delphes_card_ALFA_C4F10.tcl b/examples/ALFA/cards/delphes_card_ALFA_C4F10.tcl
+new file mode 100644
+index 0000000..0333f54
+--- /dev/null
++++ b/examples/ALFA/cards/delphes_card_ALFA_C4F10.tcl
+@@ -0,0 +1,1008 @@
++# ALFA Delphes card, ARC gas variant: C4F10 (generated by examples/ALFA/make_cards.py from delphes_card_ALFA.tcl, calibration v3)
++set RandomSeed 123
++
++#####################################################################
++# FCC-ee ALFA detector model  (ALFA_o1_v01-like, with ARC PID)
++#
++# Derived from the IDEA card. Tracker, ARC and ECAL numbers follow the
++# ALFA full simulation in k4geo (FCCee/ALFA/compact/ALFA_o1_v01) and the
++# ALFA talks of Oct 2026 (Reco workshop 26 Oct, ARC pre-demonstrator 16 Oct).
++#
++#   tracker : all-MAPS. 5-layer vertex (r = 1.3-3.3 cm, 140 mrad acceptance,
++#             3 um), 4 double-layer barrel stations (r = 0.77-1.77 m, 3 um,
++#             0.2% X0 per plane), 4 double disks per side (|z| = 1.39-2.02 m)
++#   ARC     : barrel r = 1.90-2.10 m, endcaps |z| = 2.00-2.20 m, Xe 2 bar +
++#             1 cm aerogel; 5.8% X0 passive material in the track fit
++#   ECAL    : GRAiNITA, 1.7%/sqrt(E) (+) 1.1%, 0.2 mrad angular at high E
++#   HCAL    : SiPM-on-tile in the yoke; resolution is a PLACEHOLDER
++#   B field : 3 T
++#
++# ARC parameters (ARCPID module) are the first-pass values of the ARCPID
++# study (Daniels et al., Jul 2026) and are to be replaced by the k4geo
++# full-sim calibration (tasks T05/T06 on the ALFA ARC task board).
++#####################################################################
++
++set B 3.0
++## inner radius / half length of the ECAL = where track propagation stops [m]
++set R 2.20
++set HL 2.30
++
++## ARC envelope [m], as in k4geo ALFA_o1_v01
++set ARCBRMIN 1.90
++set ARCBRMAX 2.10
++set ARCBZMAX 2.20
++set ARCEZMIN 2.00
++set ARCEZMAX 2.20
++set ARCERMIN 0.28
++set ARCERMAX 1.90
++
++
++#######################################
++# Order of execution of various modules
++#######################################
++
++set ExecutionPath {
++
++  BeamSpotSmearing
++
++  TruthVertexFinder
++  ParticlePropagator
++
++  ChargedHadronTrackingEfficiency
++  ElectronTrackingEfficiency
++  MuonTrackingEfficiency
++
++  TrackMergerPre
++  TrackSmearing
++  ARCPID
++
++  TrackMerger
++  ForwardLooperTracks
++  Calorimeter
++
++  TimeSmearingNeutrals
++  TimeOfFlightNeutralHadron
++
++  EFlowTrackMerger
++  EFlowMerger
++
++  PhotonEfficiency
++  PhotonIsolation
++
++  MuonFilter
++  TowerMerger
++
++  ElectronFilter
++  ElectronEfficiency
++  ElectronIsolation
++
++  MuonEfficiency
++  MuonIsolation
++
++  MissingET
++
++  NeutrinoFilter
++  GenJetFinder
++  GenMissingET
++
++  FastJetFinder
++  JetEnergyScale
++
++  GenJetFinderDurhamN2
++  FastJetFinderDurhamN2
++
++  JetFlavorAssociation
++
++  BTagging
++  CTagging
++  TauTagging
++
++  TreeWriter
++}
++
++#################################
++# Beam spot smearing
++#################################
++
++module BeamSpotSmearing BeamSpotSmearing {
++
++  set InputArray Delphes/allParticles
++
++  # beam spot size in x, y, z [m] and bunch time spread [s]
++  # FCC-ee Z pole example: 5.96E-06, 23.8E-09, 0.397E-03, 36.3E-12
++  set SigmaX 0.0
++  set SigmaY 0.0
++  set SigmaZ 0.0
++  set SigmaT 0.0
++}
++
++
++#################################
++# Truth Vertex Finder
++#################################
++
++module TruthVertexFinder TruthVertexFinder {
++
++  ## below this distance two vertices are assumed to be merged
++  set Resolution 1E-06
++
++  set InputArray Delphes/stableParticles
++  set VertexOutputArray vertices
++}
++
++
++#################################
++# Propagate particles in cylinder
++#################################
++
++module ParticlePropagator ParticlePropagator {
++  set InputArray Delphes/stableParticles
++
++  set OutputArray stableParticles
++  set ChargedHadronOutputArray chargedHadrons
++  set ElectronOutputArray electrons
++  set MuonOutputArray muons
++
++  # inner radius of the solenoid, in m
++  set Radius $::R
++
++  # half-length: z of the solenoid, in m
++  set HalfLength $::HL
++
++  # magnetic field, in T
++  set Bz $::B
++}
++
++####################################
++# Charged hadron tracking efficiency
++####################################
++
++module Efficiency ChargedHadronTrackingEfficiency {
++    set InputArray ParticlePropagator/chargedHadrons
++    set OutputArray chargedHadrons
++    set UseMomentumVector true
++
++    set EfficiencyFormula {
++        (abs(eta) > 2.6)                                  * (0.000) +
++        (pt < 0.1) * (abs(eta) <= 2.6)       * (0.000) +
++        (pt >= 0.1) * (abs(eta) <= 2.6)      * (1.000)
++    }
++}
++
++
++
++##############################
++# Electron tracking efficiency
++##############################
++
++module Efficiency ElectronTrackingEfficiency {
++    set InputArray ParticlePropagator/electrons
++    set OutputArray electrons
++    set UseMomentumVector true
++
++    set EfficiencyFormula {
++        (abs(eta) > 2.6)                                  * (0.000) +
++        (pt < 0.1) * (abs(eta) <= 2.6)                    * (0.000) +
++        (pt >= 0.1) * (abs(eta) <= 2.6)                   * (1.000)
++    }
++}
++
++
++##########################
++# Muon tracking efficiency
++##########################
++
++module Efficiency MuonTrackingEfficiency {
++    set InputArray ParticlePropagator/muons
++    set OutputArray muons
++    set UseMomentumVector true
++
++    set EfficiencyFormula {
++        (abs(eta) > 2.6)                                  * (0.000) +
++        (pt < 0.1) * (abs(eta) <= 2.6)       * (0.000) +
++        (pt >= 0.1) * (abs(eta) <= 2.6)      * (1.000)
++    }
++}
++
++##############
++# Track merger
++##############
++
++module Merger TrackMergerPre {
++# add InputArray InputArray
++  add InputArray ChargedHadronTrackingEfficiency/chargedHadrons
++  add InputArray ElectronTrackingEfficiency/electrons
++  add InputArray MuonTrackingEfficiency/muons
++  set OutputArray tracks
++}
++
++
++
++########################################
++# Smearing for charged tracks
++########################################
++
++module TrackCovariance TrackSmearing {
++
++    set InputArray TrackMergerPre/tracks
++    set OutputArray tracks
++
++    ## minimum number of hits to accept a track
++    set NMinHits 6
++
++    ## magnetic field
++    set Bz $::B
++
++    ## scale factors
++    set ElectronScaleFactor  {1.25}
++
++
++    set DetectorGeometry {
++
++      # Layer type 1 = R (barrel) or 2 = z (forward/backward)
++      # Layer label
++      # Minimum dimension z for barrel or R for forward
++      # Maximum dimension z for barrel or R for forward
++      # R/z location of layer
++      # Thickness (meters)
++      # Radiation length (meters)
++      # Number of measurements in layers (1D or 2D)
++      # Stereo angle (rad) - 0(pi/2) = axial(z) layer - Upper side
++      # Stereo angle (rad) - 0(pi/2) = axial(z) layer - Lower side
++      # Resolution Upper side (meters) - 0 = no measurement
++      # Resolution Lower side (meters) - 0 = no measurement
++      # measurement flag = T, scattering only = F
++
++      # barrel  name       zmin   zmax   r        w (m)      X0        n_meas  th_up (rad) th_down (rad)    reso_up (m)   reso_down (m)  flag
++
++      # beam pipe (AlBeMet + paraffin + Au, 0.68% X0 at 90 deg as in k4geo)
++      1 PIPE -100 100 0.01 0.00241 0.35276 0 0 0 0 0 0
++      # vertex detector: 5 curved MAPS layers, 10 um pixels, 140 mrad acceptance, ~0.05% X0 per layer
++      1 VTX -0.092 0.092 0.013 5e-05 0.0937 2 0 1.5708 3e-06 3e-06 1
++      1 VTX -0.128 0.128 0.018 5e-05 0.0937 2 0 1.5708 3e-06 3e-06 1
++      1 VTX -0.163 0.163 0.023 5e-05 0.0937 2 0 1.5708 3e-06 3e-06 1
++      1 VTX -0.199 0.199 0.028 5e-05 0.0937 2 0 1.5708 3e-06 3e-06 1
++      1 VTX -0.234 0.234 0.033 5e-05 0.0937 2 0 1.5708 3e-06 3e-06 1
++      # outer tracker barrel: 4 stations, each two MAPS planes on the faces of a 5 cm foam stave (k4geo OuterTrackerBarrel_o1_v00)
++      1 OTB -1.345 1.345 0.767 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
++      1 OTB -1.345 1.345 0.82 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
++      1 OTB -1.345 1.345 0.893 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
++      1 OTB -1.345 1.345 0.946 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
++      1 OTB -1.345 1.345 1.587 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
++      1 OTB -1.345 1.345 1.64 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
++      1 OTB -1.345 1.345 1.714 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
++      1 OTB -1.345 1.345 1.767 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
++      # ARC barrel as passive material: 20 cm, 5.8% X0 at 90 deg (k4geo T04 material scan)
++      1 ARCB -2.2 2.2 2 0.2 3.45 0 0 0 0 0 0
++      # outer tracker endcaps: 4 double disks per side (ALFA Delphes card, Jul 2026; engineering design in progress)
++      2 OTE 0.15 1.78 -2.045 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
++      2 OTE 0.15 1.78 -1.995 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
++      2 OTE 0.15 1.78 -1.835 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
++      2 OTE 0.15 1.78 -1.785 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
++      2 OTE 0.15 1.78 -1.625 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
++      2 OTE 0.15 1.78 -1.575 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
++      2 OTE 0.15 1.78 -1.415 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
++      2 OTE 0.15 1.78 -1.365 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
++      2 OTE 0.15 1.78 1.365 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
++      2 OTE 0.15 1.78 1.415 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
++      2 OTE 0.15 1.78 1.575 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
++      2 OTE 0.15 1.78 1.625 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
++      2 OTE 0.15 1.78 1.785 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
++      2 OTE 0.15 1.78 1.835 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
++      2 OTE 0.15 1.78 1.995 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
++      2 OTE 0.15 1.78 2.045 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
++      # ARC endcaps as passive material
++      2 ARCE 0.28 1.9 -2.1 0.2 3.45 0 0 0 0 0 0
++      2 ARCE 0.28 1.9 2.1 0.2 3.45 0 0 0 0 0 0
++
++    }
++
++}
++
++#########################################
++# ARC: Array of RICH Cells, per-track PID
++#########################################
++
++module ARCPID ARCPID {
++  set InputArray TrackSmearing/tracks
++  set OutputArray tracks
++
++  set Bz $::B
++
++  ## ARC envelope [m]
++  set BarrelRmin $::ARCBRMIN
++  set BarrelRmax $::ARCBRMAX
++  set BarrelZmax $::ARCBZMAX
++  set EndcapZmin $::ARCEZMIN
++  set EndcapZmax $::ARCEZMAX
++  set EndcapRmin $::ARCERMIN
++  set EndcapRmax $::ARCERMAX
++
++  ## gas radiator: C4F10 at 1 bar (k4geo C4F10_PFRICH table), for comparison with the July 2026 study. n and dn/dE at the
++  ## PDE-weighted mean detected photon energy <E> = 3.05 eV, sigma_E = rms of the detected spectrum (T11prep, standalone ARC cell).
++  ## calibrated on its own cell-averaged full sim (work/T06c: C4F10 in the ALFA ARC, PDE sampled).
++  set GasRefractiveIndex 1.001333
++  set GasDnDe 2.25E-5
++  set GasSigmaE 0.667
++  ## per-photon resolution without the chromatic part [rad] (pixel 1.25 (+) emission), cell-averaged full sim (T06b), smooth in the
++  ## cell off-axis variable; even-polynomial fits (s1^2 and s_c^2 in mrad^2, chromatic included in s1 and removed here; Y; E).
++  ## Residuals of the smooth forms around the cell-averaged points: s1 <= 2%, s_c 3-9%, Y and E <= 3.6% rms (systematic):
++  ##   s1_barrel: even polynomial in x, c = 9.424, 8.533, -7.629 (chi2/ndf 2.35, x in [0.065, 0.962])
++  ##   s1_endcap: even polynomial in x, c = 8.455, 5.083 (chi2/ndf 0.74, x in [0.237, 0.777])
++  ##   sc_barrel: even polynomial in x, c = 0.4511, 3.213, -2.222 (chi2/ndf 0.80, x in [0.065, 0.962])
++  ##   sc_endcap: even polynomial in x, c = 0.1213, 1.173 (chi2/ndf 1.48, x in [0.237, 0.777])
++  ##   Y_barrel: even polynomial in x, c = 0.9894, -1.557, 3.142, -1.908 (chi2/ndf 2.56, x in [0.065, 0.962])
++  ##   Y_endcap: even polynomial in x, c = 1.063, -1.305, 3.123, -2.828 (chi2/ndf 1.14, x in [0.237, 0.777])
++  ##   E_barrel: even polynomial in x, c = 0.9965, -0.4042, 0.265 (chi2/ndf 4.43, x in [0.065, 0.962])
++  ##   E_endcap: even polynomial in x, c = 1.029, -0.445 (chi2/ndf 9.10, x in [0.237, 0.777])
++  set GasSigmaSingle 0.003056
++  set GasSigmaSingleFormula {
++    (abs(eta) <= 0.9013) * (0.001 * sqrt(TMath::Max(0.0, (9.42389) + (8.53275) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0652), 0.9618), 2) + (-7.62855) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0652), 0.9618), 4) - (0.0841)))) +
++    (abs(eta) > 0.9013 && abs(eta) <= 1.0298) * (0.004986) +
++    (abs(eta) > 1.0298) * (0.001 * sqrt(TMath::Max(0.0, (8.45518) + (5.08255) * pow(TMath::Min(TMath::Max((1.0/sinh(abs(eta) + 1e-9)), 0.2371), 0.7769), 2) - (0.0841))))
++  }
++  ## per-track correlated term [rad] (does not average down with N_pe): cell-position-dependent bias of the optics
++  set GasSigmaCorrFormula {
++    (abs(eta) <= 0.9013) * (0.001 * sqrt(TMath::Max(0.0, (0.451072) + (3.21338) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0652), 0.9618), 2) + (-2.2221) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0652), 0.9618), 4) - (0)))) +
++    (abs(eta) > 0.9013 && abs(eta) <= 1.0298) * (0.002097) +
++    (abs(eta) > 1.0298) * (0.001 * sqrt(TMath::Max(0.0, (0.121307) + (1.17337) * pow(TMath::Min(TMath::Max((1.0/sinh(abs(eta) + 1e-9)), 0.2371), 0.7769), 2) - (0))))
++  }
++  ## photons at beta = 1 for L = L_ref at normal incidence (cell-averaged); ideal mirror, x 0.90 for a 90% mirror (T07)
++  set GasNsat 10.24
++  set GasLref 0.15
++  ## gas crossed at normal incidence through the k4geo cells (T12 part A): 16.9 cm barrel, 16.7 cm endcap
++  set GasThickness 0.169
++  ## light collection relative to the path scaling N_sat L / L_ref (photons leave the cell at oblique incidence)
++  set GasYieldScaleFormula {
++    (abs(eta) <= 0.9013) * (TMath::Max(0.0, (0.989363) + (-1.55742) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0652), 0.9618), 2) + (3.14241) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0652), 0.9618), 4) + (-1.90762) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0652), 0.9618), 6))) +
++    (abs(eta) > 0.9013 && abs(eta) <= 1.0298) * (0.4915) +
++    (abs(eta) > 1.0298) * (TMath::Max(0.0, (1.06341) + (-1.30469) * pow(TMath::Min(TMath::Max((1.0/sinh(abs(eta) + 1e-9)), 0.2371), 0.7769), 2) + (3.12263) * pow(TMath::Min(TMath::Max((1.0/sinh(abs(eta) + 1e-9)), 0.2371), 0.7769), 4) + (-2.82755) * pow(TMath::Min(TMath::Max((1.0/sinh(abs(eta) + 1e-9)), 0.2371), 0.7769), 6)))
++  }
++
++  ## aerogel radiator: k4geo Aerogel_PFRICH (design value 1.03 not used by the full sim). n and dn/dE at the detected <E> = 3.0 eV,
++  ## sigma_E = rms of the detected aerogel spectrum (T12, 90 deg). The chromatic term (2.7 mrad at beta = 1) dominates.
++  set AerogelRefractiveIndex 1.0193
++  # set AerogelRefractiveIndex 1.03   ;# design value
++  set AerogelDnDe 7.9E-4
++  set AerogelSigmaE 0.655
++  ## per-photon resolution without the chromatic part [rad] (pixel 1.23 (+) emission); fits (mrad, chromatic included):
++  ##   s1_barrel: even polynomial in x, c = 8.318, 3.718 (chi2/ndf 3.33, x in [0.065, 0.962])
++  ##   s1_endcap: even polynomial in x, c = 7.644, 9.55, -10.12 (chi2/ndf 2.48, x in [0.237, 0.777])
++  ##   sc_barrel: even polynomial in x, c = 1.464, 9.21, 10.66 (chi2/ndf 4.55, x in [0.065, 0.962])
++  ##   sc_endcap: even polynomial in x, c = 0.2955, 13.26 (chi2/ndf 1.28, x in [0.237, 0.777])
++  ##   Y_barrel: even polynomial in x, c = 0.9731, 0.4414, -0.4633 (chi2/ndf 3.23, x in [0.065, 0.962])
++  ##   Y_endcap: even polynomial in x, c = 0.9451, 0.689, -1.218 (chi2/ndf 3.42, x in [0.237, 0.777])
++  ##   E_barrel: even polynomial in x, c = 0.9474, -0.3253, 0.3676 (chi2/ndf 5.26, x in [0.065, 0.962])
++  ##   E_endcap: even polynomial in x, c = 0.9632, -0.152 (chi2/ndf 1.70, x in [0.237, 0.777])
++  set AerogelSigmaSingle 0.001066
++  set AerogelSigmaSingleFormula {
++    (abs(eta) <= 0.9013) * (0.001 * sqrt(TMath::Max(0.0, (8.31823) + (3.71817) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0652), 0.9618), 2) - (7.1824)))) +
++    (abs(eta) > 0.9013 && abs(eta) <= 1.0298) * (0.001493) +
++    (abs(eta) > 1.0298) * (0.001 * sqrt(TMath::Max(0.0, (7.64374) + (9.55035) * pow(TMath::Min(TMath::Max((1.0/sinh(abs(eta) + 1e-9)), 0.2371), 0.7769), 2) + (-10.1174) * pow(TMath::Min(TMath::Max((1.0/sinh(abs(eta) + 1e-9)), 0.2371), 0.7769), 4) - (7.1824))))
++  }
++  set AerogelSigmaCorrFormula {
++    (abs(eta) <= 0.9013) * (0.001 * sqrt(TMath::Max(0.0, (1.46379) + (9.20963) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0652), 0.9618), 2) + (10.6606) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0652), 0.9618), 4) - (0)))) +
++    (abs(eta) > 0.9013 && abs(eta) <= 1.0298) * (0.003881) +
++    (abs(eta) > 1.0298) * (0.001 * sqrt(TMath::Max(0.0, (0.295488) + (13.258) * pow(TMath::Min(TMath::Max((1.0/sinh(abs(eta) + 1e-9)), 0.2371), 0.7769), 2) - (0))))
++  }
++  set AerogelNsat 7.14
++  set AerogelLref 0.01
++  set AerogelThickness 0.0098
++  set AerogelYieldScaleFormula {
++    (abs(eta) <= 0.9013) * (TMath::Max(0.0, (0.973073) + (0.441369) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0652), 0.9618), 2) + (-0.463303) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0652), 0.9618), 4))) +
++    (abs(eta) > 0.9013 && abs(eta) <= 1.0298) * (0.6752) +
++    (abs(eta) > 1.0298) * (TMath::Max(0.0, (0.945113) + (0.688964) * pow(TMath::Min(TMath::Max((1.0/sinh(abs(eta) + 1e-9)), 0.2371), 0.7769), 2) + (-1.21823) * pow(TMath::Min(TMath::Max((1.0/sinh(abs(eta) + 1e-9)), 0.2371), 0.7769), 4)))
++  }
++
++  ## per-photon spread from the track curving across the radiator: sigma_bend = BendingCoefficient * 0.3 * B * L * sin(theta) / p,
++  ## weighted mean of the per-bin gas fits (T06b); the T06 reconstruction already corrects for the helix, so k < 1/sqrt(12)
++  set BendingCoefficient 0.152
++
++  ## a ring needs at least MinPe detected photons (as in the T06 reconstruction); the yield fluctuates per track (Poisson)
++  set MinPe 3.0
++  set SigmaTrack 0.0
++  set PoissonFluctuation true
++  set UseTrueMomentumForPID false
++
++  ## ring-finding efficiency (ring lost: cell edge, mirror gap; < 3 photons is handled by MinPe), cell-averaged
++  set GasEfficiencyFormula {
++    (abs(eta) <= 0.9013) * (TMath::Max(0.0, TMath::Min(1.0, (0.996478) + (-0.404233) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0652), 0.9618), 2) + (0.26502) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0652), 0.9618), 4)))) +
++    (abs(eta) > 0.9013 && abs(eta) <= 1.0298) * (0.08889) +
++    (abs(eta) > 1.0298) * (TMath::Max(0.0, TMath::Min(1.0, (1.02932) + (-0.445019) * pow(TMath::Min(TMath::Max((1.0/sinh(abs(eta) + 1e-9)), 0.2371), 0.7769), 2))))
++  }
++  set AerogelEfficiencyFormula {
++    (abs(eta) <= 0.9013) * (TMath::Max(0.0, TMath::Min(1.0, (0.947423) + (-0.325302) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0652), 0.9618), 2) + (0.367565) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0652), 0.9618), 4)))) +
++    (abs(eta) > 0.9013 && abs(eta) <= 1.0298) * (0.149) +
++    (abs(eta) > 1.0298) * (TMath::Max(0.0, TMath::Min(1.0, (0.963182) + (-0.151971) * pow(TMath::Min(TMath::Max((1.0/sinh(abs(eta) + 1e-9)), 0.2371), 0.7769), 2))))
++  }
++}
++
++##############
++# Track merger
++##############
++
++module Merger TrackMerger {
++# add InputArray InputArray
++  add InputArray ARCPID/tracks
++  set OutputArray tracks
++}
++
++
++######################
++# Looper Selection
++######################
++
++module Efficiency ForwardLooperTracks  {
++  set InputArray TrackMerger/tracks
++  set OutputArray tracks
++  set UseMomentumVector false
++
++  ## select looping tracks that end up in position |eta| > 3.142 (lost by calo)
++  set EfficiencyFormula {
++    (abs(eta) > 3.0 )                                 * (1.000) +
++    (abs(eta) <= 3.0 )                                * (0.000)
++  }
++
++}
++
++
++#############
++# Calorimeter
++#############
++module DualReadoutCalorimeter Calorimeter {
++    set ParticleInputArray ParticlePropagator/stableParticles
++    set TrackInputArray TrackMerger/tracks
++
++    set TowerOutputArray towers
++    set PhotonOutputArray photons
++
++    set EFlowTrackOutputArray eflowTracks
++    set EFlowPhotonOutputArray eflowPhotons
++    set EFlowNeutralHadronOutputArray eflowNeutralHadrons
++
++    set ECalMinSignificance 2.0
++    set HCalMinSignificance 2.5
++
++    set SmearLogNormal false
++
++    set SmearTowerCenter true
++    #set SmearTowerCenter false
++
++    ## GRAiNITA barrel photon angular resolution, CLUE clustering (ALFA Reco workshop 26 Oct 2026): a = 0.80, b = 0.55, c = 0.145 mrad; endcap assumed equal
++    set PhotonAngularSmearing true
++
++    set PhotonThetaResolutionFormula {
++      (abs(eta) <= 0.92)                   * sqrt(0.80^2/energy + 0.55^2/energy^2 + 0.145^2)*1E-3 +
++      (abs(eta) > 0.92 && abs(eta) <= 3.0) * sqrt(0.80^2/energy + 0.55^2/energy^2 + 0.145^2)*1E-3
++    }
++
++    set PhotonPhiResolutionFormula {
++      (abs(eta) <= 0.92)                   * sqrt(0.80^2/energy + 0.55^2/energy^2 + 0.145^2)*1E-3 +
++      (abs(eta) > 0.92 && abs(eta) <= 3.0) * sqrt(0.80^2/energy + 0.55^2/energy^2 + 0.145^2)*1E-3
++    }
++
++    set PhotonPointing true
++
++    set PointingThetaResolutionFormula { (abs(eta) <= 3.0) * sqrt(111.9^2/energy + 21.0^2)*1E-3 }
++    set PointingPhiResolutionFormula   { (abs(eta) <= 3.0) * sqrt(139.4^2/energy + 23.8^2)*1E-3 }
++
++    ## alternative optimistic pointing BDT-corrected
++    # set PointingThetaResolutionFormula { (abs(eta) <= 3.0) * sqrt(51.76^2/energy + 11.67^2)*1E-3 }
++    # set PointingPhiResolutionFormula   { (abs(eta) <= 3.0) * sqrt(75.76^2/energy + 73.66^2/energy^2 + 16.73^2)*1E-3 }
++    set pi [expr {acos(-1)}]
++
++    # Lists of the edges of each tower in eta and phi;
++    # each list starts with the lower edge of the first tower;
++    # the list ends with the higher edged of the last tower.
++    # Barrel:  deta=0.02 towers up to |eta| <= 0.88 ( up to 45°)
++    # Endcaps: deta=0.02 towers up to |eta| <= 3.0 (8.6° = 100 mrad)
++    # Cell size: about 6 cm x 6 cm
++
++    set EtaPhiRes 0.02
++    set EtaMax 3.0
++
++    set pi [expr {acos(-1)}]
++
++    set PhiBins [expr {int($pi/$EtaPhiRes) * 2}]
++
++    set nbins_eta [expr {$EtaMax/$EtaPhiRes} ]
++    set nbins_eta [expr {int($nbins_eta)} ]
++
++    for {set i -$nbins_eta} {$i <= $nbins_eta} {incr i} {
++      set eta [expr {$i * $EtaPhiRes}]
++      add EtaPhiBins $eta $PhiBins
++    }
++
++    # default energy fractions {abs(PDG code)} {Fecal Fhcal}
++    add EnergyFraction {0} {0.0 1.0}
++    # energy fractions for e, gamma and pi0
++    add EnergyFraction {11} {1.0 0.0}
++    add EnergyFraction {22} {1.0 0.0}
++    add EnergyFraction {111} {1.0 0.0}
++    # energy fractions for muon, neutrinos and neutralinos
++    add EnergyFraction {12} {0.0 0.0}
++    add EnergyFraction {13} {0.0 0.0}
++    add EnergyFraction {14} {0.0 0.0}
++    add EnergyFraction {16} {0.0 0.0}
++    add EnergyFraction {1000022} {0.0 0.0}
++    add EnergyFraction {1000023} {0.0 0.0}
++    add EnergyFraction {1000025} {0.0 0.0}
++    add EnergyFraction {1000035} {0.0 0.0}
++    add EnergyFraction {1000045} {0.0 0.0}
++    # energy fractions for K0short and Lambda
++    add EnergyFraction {310} {0.3 0.7}
++    add EnergyFraction {130} {0.3 0.7}
++    add EnergyFraction {3122} {0.3 0.7}
++
++
++    ## GRAiNITA ECAL: sigma_E/E = 1.7%/sqrt(E) (+) 1.1% at reconstruction level with CLUE (ALFA Reco workshop 26 Oct 2026).
++    ## Endcap assumed identical (no endcap design yet).
++    set ECalResolutionFormula {
++    (abs(eta) <= 0.92 )                     * sqrt(energy^2*0.011^2 + energy*0.017^2 + 0.002^2)+
++    (abs(eta) > 0.92 && abs(eta) <= 3.0)    * sqrt(energy^2*0.011^2 + energy*0.017^2 + 0.002^2)
++    }
++
++
++    ## HCAL: SiPM-on-tile scintillator in the instrumented yoke (HGCAL CE-H like).
++    ## PLACEHOLDER: 45%/sqrt(E) (+) 3% (CALICE AHCAL-like) until the standalone Geant4 study provides numbers.
++    set HCalResolutionFormula {
++    (abs(eta) <= 0.92 )                     * sqrt(energy^2*0.03^2 + energy*0.45^2 + 0.05^2)+
++    (abs(eta) > 0.92 && abs(eta) <= 3.0)    * sqrt(energy^2*0.03^2 + energy*0.45^2 + 0.05^2)
++    }
++}
++
++########################################
++#   Time Smearing Neutrals
++########################################
++
++module TimeSmearing TimeSmearingNeutrals {
++  set InputArray Calorimeter/eflowNeutralHadrons
++  set OutputArray eflowNeutralHadrons
++
++  # assume constant 30 ps resolution for now
++  set TimeResolution {
++                       (abs(eta) > 0.0 && abs(eta) <= 3.0)* 30E-12
++                     }
++}
++
++########################################
++#   Time Of Flight Measurement
++########################################
++
++module TimeOfFlight TimeOfFlightNeutralHadron {
++  set InputArray TimeSmearingNeutrals/eflowNeutralHadrons
++  set VertexInputArray TruthVertexFinder/vertices
++
++  set OutputArray eflowNeutralHadrons
++
++  # 0: assume vertex time tV from MC Truth (ideal case)
++  # 1: assume vertex time tV = 0
++  # 2: calculate vertex time as vertex TOF, assuming tPV=0
++
++  ## TBF (add option to take hard vertex time)
++  set VertexTimeMode 1
++}
++
++
++############################
++# Energy flow track merger
++############################
++
++module Merger EFlowTrackMerger {
++# add InputArray InputArray
++  add InputArray Calorimeter/eflowTracks
++  add InputArray ForwardLooperTracks/tracks
++  set OutputArray eflowTracks
++}
++
++
++
++####################
++# Energy flow merger
++####################
++
++module Merger EFlowMerger {
++# add InputArray InputArray
++  add InputArray EFlowTrackMerger/eflowTracks
++  add InputArray Calorimeter/eflowPhotons
++  add InputArray TimeOfFlightNeutralHadron/eflowNeutralHadrons
++  set OutputArray eflow
++}
++
++
++####################
++# Tower merger
++####################
++
++module Merger TowerMerger {
++# add InputArray InputArray
++  add InputArray Calorimeter/towers
++  add InputArray MuonFilter/muons
++  set OutputArray towers
++}
++
++
++###################
++# Photon efficiency
++###################
++
++module Efficiency PhotonEfficiency {
++  set InputArray Calorimeter/eflowPhotons
++  set OutputArray photons
++
++  # set EfficiencyFormula {efficiency formula as a function of eta and pt}
++  # efficiency formula for photons
++  set EfficiencyFormula {
++        (energy < 2.0)                                        * (0.000)+
++        (energy >= 2.0) * (abs(eta) <= 0.92)                  * (0.99) +
++        (energy >= 2.0) * (abs(eta) >0.88 && abs(eta) <= 3.0) * (0.99) +
++        (abs(eta) > 3.0)                                      * (0.000)
++  }
++}
++
++##################
++# Photon isolation
++##################
++
++module Isolation PhotonIsolation {
++  set CandidateInputArray PhotonEfficiency/photons
++  set IsolationInputArray EFlowMerger/eflow
++
++  set OutputArray photons
++
++  set DeltaRMax 0.5
++
++  set PTMin 0.5
++
++  set PTRatioMax 9999.
++}
++
++#################
++# Electron filter
++#################
++
++module PdgCodeFilter ElectronFilter {
++  set InputArray EFlowTrackMerger/eflowTracks
++  set OutputArray electrons
++  set Invert true
++  add PdgCode {11}
++  add PdgCode {-11}
++}
++
++#################
++# Muon filter
++#################
++
++module PdgCodeFilter MuonFilter {
++  set InputArray EFlowTrackMerger/eflowTracks
++  set OutputArray muons
++  set Invert true
++  add PdgCode {13}
++  add PdgCode {-13}
++}
++
++
++#####################
++# Electron efficiency
++#####################
++
++module Efficiency ElectronEfficiency {
++  set InputArray ElectronFilter/electrons
++  set OutputArray electrons
++
++  # set EfficiencyFormula {efficiency formula as a function of eta and pt}
++
++  # efficiency formula for electrons
++  set EfficiencyFormula {
++        (energy < 2.0)                                         * (0.000)+
++        (energy >= 2.0) * (abs(eta) <= 0.92)                   * (0.99) +
++        (energy >= 2.0) * (abs(eta) >0.88 && abs(eta) <= 3.0)  * (0.99) +
++        (abs(eta) > 3.0)                                       * (0.000)
++  }
++}
++
++####################
++# Electron isolation
++####################
++
++module Isolation ElectronIsolation {
++  set CandidateInputArray ElectronEfficiency/electrons
++  set IsolationInputArray EFlowMerger/eflow
++
++  set OutputArray electrons
++
++  set DeltaRMax 0.5
++
++  set PTMin 0.5
++
++  set PTRatioMax 9999
++}
++
++#################
++# Muon efficiency
++#################
++
++module Efficiency MuonEfficiency {
++  set InputArray MuonFilter/muons
++  set OutputArray muons
++
++  # set EfficiencyFormula {efficiency as a function of eta and pt}
++
++  # efficiency formula for muons
++  set EfficiencyFormula {
++        (energy < 2.0)                                         * (0.000)+
++        (energy >= 2.0) * (abs(eta) <= 0.92)                   * (0.99) +
++        (energy >= 2.0) * (abs(eta) >0.88 && abs(eta) <= 3.0)  * (0.99) +
++        (abs(eta) > 3.0)                                       * (0.000)
++  }
++}
++
++################
++# Muon isolation
++################
++
++module Isolation MuonIsolation {
++  set CandidateInputArray MuonEfficiency/muons
++  set IsolationInputArray EFlowMerger/eflow
++
++  set OutputArray muons
++
++  set DeltaRMax 0.5
++
++  set PTMin 0.5
++
++  set PTRatioMax 9999.
++}
++
++###################
++# Missing ET merger
++###################
++
++module Merger MissingET {
++# add InputArray InputArray
++  add InputArray EFlowMerger/eflow
++  set MomentumOutputArray momentum
++}
++
++
++#####################
++# Neutrino Filter
++#####################
++
++module PdgCodeFilter NeutrinoFilter {
++
++  set InputArray Delphes/stableParticles
++  set OutputArray filteredParticles
++
++  set PTMin 0.0
++
++  add PdgCode {12}
++  add PdgCode {14}
++  add PdgCode {16}
++  add PdgCode {-12}
++  add PdgCode {-14}
++  add PdgCode {-16}
++}
++
++###################################
++# Gen Jet finder Durham exclusive
++###################################
++
++module FastJetFinder GenJetFinderDurhamN2 {
++
++  set InputArray NeutrinoFilter/filteredParticles
++  set OutputArray jets
++
++  # algorithm: 11 ee-durham kT algorithm
++  # ref: https://indico.cern.ch/event/1173562/contributions/4929025/attachments/2470068/4237859/2022-06-FCC-jets.pdf
++  # to run exclusive njet mode set NJets to int
++  # to run exclusive dcut mode set DCut to float
++  # if DCut > 0 will run in dcut mode
++
++  set JetAlgorithm 11
++  set ExclusiveClustering true
++  set NJets 2
++  # set DCut 10.0
++}
++
++################################
++# Jet finder Durham exclusive
++################################
++
++module FastJetFinder FastJetFinderDurhamN2 {
++#  set InputArray Calorimeter/towers
++  set InputArray EFlowMerger/eflow
++
++  set OutputArray jets
++
++  # algorithm: 11 ee-durham kT algorithm
++  # ref: https://indico.cern.ch/event/1173562/contributions/4929025/attachments/2470068/4237859/2022-06-FCC-jets.pdf
++  # to run exclusive njet mode set NJets to int
++  # to run exclusive dcut mode set DCut to float
++  # if DCut > 0 will run in dcut mode
++
++  set JetAlgorithm 11
++  set ExclusiveClustering true
++  set NJets 2
++  # set DCut 10.0
++
++}
++
++
++
++
++#####################
++# MC truth jet finder
++#####################
++
++module FastJetFinder GenJetFinder {
++  set InputArray NeutrinoFilter/filteredParticles
++  set OutputArray jets
++
++  set JetAlgorithm 10
++  set ParameterR 1.5
++  set ParameterP -1.0
++  set JetPTMin 1.0
++
++}
++
++
++#########################
++# Gen Missing ET merger
++########################
++
++module Merger GenMissingET {
++# add InputArray InputArray
++  add InputArray NeutrinoFilter/filteredParticles
++  set MomentumOutputArray momentum
++}
++
++############
++# Jet finder
++############
++
++module FastJetFinder FastJetFinder {
++#  set InputArray Calorimeter/towers
++  set InputArray EFlowMerger/eflow
++
++  set OutputArray jets
++
++  # algorithm: 1 CDFJetClu, 2 MidPoint, 3 SIScone, 4 kt, 5 Cambridge/Aachen, 6 antikt
++  set JetAlgorithm 10
++  set ParameterR 1.5
++  set ParameterP -1.0
++  set JetPTMin 1.0
++
++
++}
++
++##################
++# Jet Energy Scale
++##################
++
++module EnergyScale JetEnergyScale {
++  set InputArray FastJetFinder/jets
++  set OutputArray jets
++
++  # scale formula for jets
++  set ScaleFormula {1.00}
++}
++
++########################
++# Jet Flavor Association
++########################
++
++module JetFlavorAssociation JetFlavorAssociation {
++
++  set PartonInputArray Delphes/partons
++  set ParticleInputArray Delphes/allParticles
++  set ParticleLHEFInputArray Delphes/allParticlesLHEF
++  set JetInputArray JetEnergyScale/jets
++
++  set DeltaR 0.5
++  set PartonPTMin 1.0
++  set PartonEtaMax 3.0
++}
++
++###########
++# b-tagging
++###########
++
++module BTagging BTagging {
++  set JetInputArray JetEnergyScale/jets
++
++  set BitNumber 0
++
++  # add EfficiencyFormula {abs(PDG code)} {efficiency formula as a function of eta and pt}
++
++  # default efficiency formula (misidentification rate)
++  add EfficiencyFormula {0} {0.005}
++
++  # efficiency formula for c-jets (misidentification rate)
++  add EfficiencyFormula {4} {0.01}
++
++  # efficiency formula for b-jets
++  add EfficiencyFormula {5} {0.85}
++}
++
++###########
++# c-tagging
++###########
++
++module BTagging CTagging {
++  set JetInputArray JetEnergyScale/jets
++
++  set BitNumber 1
++
++  # add EfficiencyFormula {abs(PDG code)} {efficiency formula as a function of eta and pt}
++
++  # default efficiency formula (misidentification rate)
++  add EfficiencyFormula {0} {0.01}
++
++  # efficiency formula for c-jets (misidentification rate)
++  add EfficiencyFormula {5} {0.05}
++
++  # efficiency formula for b-jets
++  add EfficiencyFormula {4} {0.80}
++}
++
++
++#############
++# tau-tagging
++#############
++
++module TauTagging TauTagging {
++  set ParticleInputArray Delphes/allParticles
++  set PartonInputArray Delphes/partons
++  set JetInputArray JetEnergyScale/jets
++
++  set DeltaR 0.5
++  set TauPTMin 1.0
++  set TauEtaMax 3.0
++
++  # default efficiency formula (misidentification rate)
++  add EfficiencyFormula {0} {0.01}
++  # efficiency formula for tau-jets
++  add EfficiencyFormula {15} {0.85}
++}
++
++
++
++##################
++# ROOT tree writer
++##################
++
++# Tracks, towers and eflow objects are not stored by default in the output.
++# If needed (for jet constituent or other studies), uncomment the relevant
++# "add Branch ..." lines.
++
++module TreeWriter TreeWriter {
++    # add Branch InputArray BranchName BranchClass
++
++    add Branch Delphes/allParticles Particle GenParticle
++    add Branch TruthVertexFinder/vertices GenVertex Vertex
++
++    add Branch EFlowTrackMerger/eflowTracks EFlowTrack Track
++    add Branch TrackMerger/tracks Track Track
++    add Branch Calorimeter/eflowPhotons EFlowPhoton Tower
++    add Branch TimeOfFlightNeutralHadron/eflowNeutralHadrons EFlowNeutralHadron Tower
++
++    add Branch EFlowMerger/eflow ParticleFlowCandidate ParticleFlowCandidate
++    add Branch Calorimeter/towers Tower Tower
++
++    add Branch ElectronEfficiency/electrons Electron Electron
++    add Branch MuonEfficiency/muons Muon Muon
++    add Branch PhotonEfficiency/photons Photon Photon
++
++    add Branch JetEnergyScale/jets Jet Jet
++    add Branch MissingET/momentum MissingET MissingET
++
++    add Branch GenJetFinder/jets GenJet Jet
++    add Branch GenMissingET/momentum GenMissingET MissingET
++
++    add Branch GenJetFinderDurhamN2/jets GenJetDurhamN2 Jet
++    add Branch FastJetFinderDurhamN2/jets JetDurhamN2 Jet
++
++    # add Info InfoName InfoValue
++    add Info Bz $::B
++}
+diff --git a/examples/ALFA/cards/delphes_card_ALFA_Xe2bar.tcl b/examples/ALFA/cards/delphes_card_ALFA_Xe2bar.tcl
+new file mode 100644
+index 0000000..ebdcb6d
+--- /dev/null
++++ b/examples/ALFA/cards/delphes_card_ALFA_Xe2bar.tcl
+@@ -0,0 +1,1007 @@
++# ALFA Delphes card, ARC gas variant: Xe2bar (generated by examples/ALFA/make_cards.py from delphes_card_ALFA.tcl, calibration v3)
++set RandomSeed 123
++
++#####################################################################
++# FCC-ee ALFA detector model  (ALFA_o1_v01-like, with ARC PID)
++#
++# Derived from the IDEA card. Tracker, ARC and ECAL numbers follow the
++# ALFA full simulation in k4geo (FCCee/ALFA/compact/ALFA_o1_v01) and the
++# ALFA talks of Oct 2026 (Reco workshop 26 Oct, ARC pre-demonstrator 16 Oct).
++#
++#   tracker : all-MAPS. 5-layer vertex (r = 1.3-3.3 cm, 140 mrad acceptance,
++#             3 um), 4 double-layer barrel stations (r = 0.77-1.77 m, 3 um,
++#             0.2% X0 per plane), 4 double disks per side (|z| = 1.39-2.02 m)
++#   ARC     : barrel r = 1.90-2.10 m, endcaps |z| = 2.00-2.20 m, Xe 2 bar +
++#             1 cm aerogel; 5.8% X0 passive material in the track fit
++#   ECAL    : GRAiNITA, 1.7%/sqrt(E) (+) 1.1%, 0.2 mrad angular at high E
++#   HCAL    : SiPM-on-tile in the yoke; resolution is a PLACEHOLDER
++#   B field : 3 T
++#
++# ARC parameters (ARCPID module) are the first-pass values of the ARCPID
++# study (Daniels et al., Jul 2026) and are to be replaced by the k4geo
++# full-sim calibration (tasks T05/T06 on the ALFA ARC task board).
++#####################################################################
++
++set B 3.0
++## inner radius / half length of the ECAL = where track propagation stops [m]
++set R 2.20
++set HL 2.30
++
++## ARC envelope [m], as in k4geo ALFA_o1_v01
++set ARCBRMIN 1.90
++set ARCBRMAX 2.10
++set ARCBZMAX 2.20
++set ARCEZMIN 2.00
++set ARCEZMAX 2.20
++set ARCERMIN 0.28
++set ARCERMAX 1.90
++
++
++#######################################
++# Order of execution of various modules
++#######################################
++
++set ExecutionPath {
++
++  BeamSpotSmearing
++
++  TruthVertexFinder
++  ParticlePropagator
++
++  ChargedHadronTrackingEfficiency
++  ElectronTrackingEfficiency
++  MuonTrackingEfficiency
++
++  TrackMergerPre
++  TrackSmearing
++  ARCPID
++
++  TrackMerger
++  ForwardLooperTracks
++  Calorimeter
++
++  TimeSmearingNeutrals
++  TimeOfFlightNeutralHadron
++
++  EFlowTrackMerger
++  EFlowMerger
++
++  PhotonEfficiency
++  PhotonIsolation
++
++  MuonFilter
++  TowerMerger
++
++  ElectronFilter
++  ElectronEfficiency
++  ElectronIsolation
++
++  MuonEfficiency
++  MuonIsolation
++
++  MissingET
++
++  NeutrinoFilter
++  GenJetFinder
++  GenMissingET
++
++  FastJetFinder
++  JetEnergyScale
++
++  GenJetFinderDurhamN2
++  FastJetFinderDurhamN2
++
++  JetFlavorAssociation
++
++  BTagging
++  CTagging
++  TauTagging
++
++  TreeWriter
++}
++
++#################################
++# Beam spot smearing
++#################################
++
++module BeamSpotSmearing BeamSpotSmearing {
++
++  set InputArray Delphes/allParticles
++
++  # beam spot size in x, y, z [m] and bunch time spread [s]
++  # FCC-ee Z pole example: 5.96E-06, 23.8E-09, 0.397E-03, 36.3E-12
++  set SigmaX 0.0
++  set SigmaY 0.0
++  set SigmaZ 0.0
++  set SigmaT 0.0
++}
++
++
++#################################
++# Truth Vertex Finder
++#################################
++
++module TruthVertexFinder TruthVertexFinder {
++
++  ## below this distance two vertices are assumed to be merged
++  set Resolution 1E-06
++
++  set InputArray Delphes/stableParticles
++  set VertexOutputArray vertices
++}
++
++
++#################################
++# Propagate particles in cylinder
++#################################
++
++module ParticlePropagator ParticlePropagator {
++  set InputArray Delphes/stableParticles
++
++  set OutputArray stableParticles
++  set ChargedHadronOutputArray chargedHadrons
++  set ElectronOutputArray electrons
++  set MuonOutputArray muons
++
++  # inner radius of the solenoid, in m
++  set Radius $::R
++
++  # half-length: z of the solenoid, in m
++  set HalfLength $::HL
++
++  # magnetic field, in T
++  set Bz $::B
++}
++
++####################################
++# Charged hadron tracking efficiency
++####################################
++
++module Efficiency ChargedHadronTrackingEfficiency {
++    set InputArray ParticlePropagator/chargedHadrons
++    set OutputArray chargedHadrons
++    set UseMomentumVector true
++
++    set EfficiencyFormula {
++        (abs(eta) > 2.6)                                  * (0.000) +
++        (pt < 0.1) * (abs(eta) <= 2.6)       * (0.000) +
++        (pt >= 0.1) * (abs(eta) <= 2.6)      * (1.000)
++    }
++}
++
++
++
++##############################
++# Electron tracking efficiency
++##############################
++
++module Efficiency ElectronTrackingEfficiency {
++    set InputArray ParticlePropagator/electrons
++    set OutputArray electrons
++    set UseMomentumVector true
++
++    set EfficiencyFormula {
++        (abs(eta) > 2.6)                                  * (0.000) +
++        (pt < 0.1) * (abs(eta) <= 2.6)                    * (0.000) +
++        (pt >= 0.1) * (abs(eta) <= 2.6)                   * (1.000)
++    }
++}
++
++
++##########################
++# Muon tracking efficiency
++##########################
++
++module Efficiency MuonTrackingEfficiency {
++    set InputArray ParticlePropagator/muons
++    set OutputArray muons
++    set UseMomentumVector true
++
++    set EfficiencyFormula {
++        (abs(eta) > 2.6)                                  * (0.000) +
++        (pt < 0.1) * (abs(eta) <= 2.6)       * (0.000) +
++        (pt >= 0.1) * (abs(eta) <= 2.6)      * (1.000)
++    }
++}
++
++##############
++# Track merger
++##############
++
++module Merger TrackMergerPre {
++# add InputArray InputArray
++  add InputArray ChargedHadronTrackingEfficiency/chargedHadrons
++  add InputArray ElectronTrackingEfficiency/electrons
++  add InputArray MuonTrackingEfficiency/muons
++  set OutputArray tracks
++}
++
++
++
++########################################
++# Smearing for charged tracks
++########################################
++
++module TrackCovariance TrackSmearing {
++
++    set InputArray TrackMergerPre/tracks
++    set OutputArray tracks
++
++    ## minimum number of hits to accept a track
++    set NMinHits 6
++
++    ## magnetic field
++    set Bz $::B
++
++    ## scale factors
++    set ElectronScaleFactor  {1.25}
++
++
++    set DetectorGeometry {
++
++      # Layer type 1 = R (barrel) or 2 = z (forward/backward)
++      # Layer label
++      # Minimum dimension z for barrel or R for forward
++      # Maximum dimension z for barrel or R for forward
++      # R/z location of layer
++      # Thickness (meters)
++      # Radiation length (meters)
++      # Number of measurements in layers (1D or 2D)
++      # Stereo angle (rad) - 0(pi/2) = axial(z) layer - Upper side
++      # Stereo angle (rad) - 0(pi/2) = axial(z) layer - Lower side
++      # Resolution Upper side (meters) - 0 = no measurement
++      # Resolution Lower side (meters) - 0 = no measurement
++      # measurement flag = T, scattering only = F
++
++      # barrel  name       zmin   zmax   r        w (m)      X0        n_meas  th_up (rad) th_down (rad)    reso_up (m)   reso_down (m)  flag
++
++      # beam pipe (AlBeMet + paraffin + Au, 0.68% X0 at 90 deg as in k4geo)
++      1 PIPE -100 100 0.01 0.00241 0.35276 0 0 0 0 0 0
++      # vertex detector: 5 curved MAPS layers, 10 um pixels, 140 mrad acceptance, ~0.05% X0 per layer
++      1 VTX -0.092 0.092 0.013 5e-05 0.0937 2 0 1.5708 3e-06 3e-06 1
++      1 VTX -0.128 0.128 0.018 5e-05 0.0937 2 0 1.5708 3e-06 3e-06 1
++      1 VTX -0.163 0.163 0.023 5e-05 0.0937 2 0 1.5708 3e-06 3e-06 1
++      1 VTX -0.199 0.199 0.028 5e-05 0.0937 2 0 1.5708 3e-06 3e-06 1
++      1 VTX -0.234 0.234 0.033 5e-05 0.0937 2 0 1.5708 3e-06 3e-06 1
++      # outer tracker barrel: 4 stations, each two MAPS planes on the faces of a 5 cm foam stave (k4geo OuterTrackerBarrel_o1_v00)
++      1 OTB -1.345 1.345 0.767 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
++      1 OTB -1.345 1.345 0.82 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
++      1 OTB -1.345 1.345 0.893 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
++      1 OTB -1.345 1.345 0.946 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
++      1 OTB -1.345 1.345 1.587 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
++      1 OTB -1.345 1.345 1.64 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
++      1 OTB -1.345 1.345 1.714 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
++      1 OTB -1.345 1.345 1.767 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
++      # ARC barrel as passive material: 20 cm, 5.8% X0 at 90 deg (k4geo T04 material scan)
++      1 ARCB -2.2 2.2 2 0.2 3.45 0 0 0 0 0 0
++      # outer tracker endcaps: 4 double disks per side (ALFA Delphes card, Jul 2026; engineering design in progress)
++      2 OTE 0.15 1.78 -2.045 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
++      2 OTE 0.15 1.78 -1.995 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
++      2 OTE 0.15 1.78 -1.835 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
++      2 OTE 0.15 1.78 -1.785 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
++      2 OTE 0.15 1.78 -1.625 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
++      2 OTE 0.15 1.78 -1.575 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
++      2 OTE 0.15 1.78 -1.415 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
++      2 OTE 0.15 1.78 -1.365 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
++      2 OTE 0.15 1.78 1.365 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
++      2 OTE 0.15 1.78 1.415 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
++      2 OTE 0.15 1.78 1.575 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
++      2 OTE 0.15 1.78 1.625 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
++      2 OTE 0.15 1.78 1.785 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
++      2 OTE 0.15 1.78 1.835 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
++      2 OTE 0.15 1.78 1.995 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
++      2 OTE 0.15 1.78 2.045 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
++      # ARC endcaps as passive material
++      2 ARCE 0.28 1.9 -2.1 0.2 3.45 0 0 0 0 0 0
++      2 ARCE 0.28 1.9 2.1 0.2 3.45 0 0 0 0 0 0
++
++    }
++
++}
++
++#########################################
++# ARC: Array of RICH Cells, per-track PID
++#########################################
++
++module ARCPID ARCPID {
++  set InputArray TrackSmearing/tracks
++  set OutputArray tracks
++
++  set Bz $::B
++
++  ## ARC envelope [m]
++  set BarrelRmin $::ARCBRMIN
++  set BarrelRmax $::ARCBRMAX
++  set BarrelZmax $::ARCBZMAX
++  set EndcapZmin $::ARCEZMIN
++  set EndcapZmax $::ARCEZMAX
++  set EndcapRmin $::ARCERMIN
++  set EndcapRmax $::ARCERMAX
++
++  ## gas radiator: xenon at 2 bar, 293.15 K (k4geo Xenon_ARC, ALFA_o1_v01). n and dn/dE at the PDE-weighted mean detected photon
++  ## energy <E> = 3.02 eV (T11prep), sigma_E = rms of the detected gas spectrum (T12). Thresholds pi/K/p = 2.71 / 9.59 / 18.2 GeV.
++  set GasRefractiveIndex 1.00132
++  set GasDnDe 6.17E-5
++  set GasSigmaE 0.68
++  ## per-photon resolution without the chromatic part [rad] (pixel 1.25 (+) emission), cell-averaged full sim (T06b), smooth in the
++  ## cell off-axis variable; even-polynomial fits (s1^2 and s_c^2 in mrad^2, chromatic included in s1 and removed here; Y; E).
++  ## Residuals of the smooth forms around the cell-averaged points: s1 <= 2%, s_c 3-9%, Y and E <= 3.6% rms (systematic):
++  ##   s1_barrel: even polynomial in x, c = 9.687, 10.62, -9.808 (chi2/ndf 1.06, x in [0.064, 0.963])
++  ##   s1_endcap: even polynomial in x, c = 8.703, 6.007 (chi2/ndf 0.97, x in [0.237, 0.777])
++  ##   sc_barrel: even polynomial in x, c = 0.5226, 2.588, -2.254 (chi2/ndf 0.27, x in [0.064, 0.963])
++  ##   sc_endcap: even polynomial in x, c = 0.2339, 1.453 (chi2/ndf 1.50, x in [0.237, 0.777])
++  ##   Y_barrel: even polynomial in x, c = 0.981, -1.274, 2.311, -1.276 (chi2/ndf 7.72, x in [0.064, 0.963])
++  ##   Y_endcap: even polynomial in x, c = 1.013, -0.5319, 0.4176 (chi2/ndf 0.44, x in [0.237, 0.777])
++  ##   E_barrel: even polynomial in x, c = 0.9929, -0.3013, 0.1644 (chi2/ndf 2.89, x in [0.064, 0.963])
++  ##   E_endcap: even polynomial in x, c = 1.019, -0.3722 (chi2/ndf 2.44, x in [0.237, 0.777])
++  set GasSigmaSingle 0.003005
++  set GasSigmaSingleFormula {
++    (abs(eta) <= 0.9013) * (0.001 * sqrt(TMath::Max(0.0, (9.68685) + (10.6206) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0637), 0.9627), 2) + (-9.8085) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0637), 0.9627), 4) - (0.6561)))) +
++    (abs(eta) > 0.9013 && abs(eta) <= 1.0298) * (0.004956) +
++    (abs(eta) > 1.0298) * (0.001 * sqrt(TMath::Max(0.0, (8.70341) + (6.00713) * pow(TMath::Min(TMath::Max((1.0/sinh(abs(eta) + 1e-9)), 0.2373), 0.7765), 2) - (0.6561))))
++  }
++  ## per-track correlated term [rad] (does not average down with N_pe): cell-position-dependent bias of the optics
++  set GasSigmaCorrFormula {
++    (abs(eta) <= 0.9013) * (0.001 * sqrt(TMath::Max(0.0, (0.522559) + (2.58791) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0637), 0.9627), 2) + (-2.2542) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0637), 0.9627), 4) - (0)))) +
++    (abs(eta) > 0.9013 && abs(eta) <= 1.0298) * (0.001513) +
++    (abs(eta) > 1.0298) * (0.001 * sqrt(TMath::Max(0.0, (0.233946) + (1.45306) * pow(TMath::Min(TMath::Max((1.0/sinh(abs(eta) + 1e-9)), 0.2373), 0.7765), 2) - (0))))
++  }
++  ## photons at beta = 1 for L = L_ref at normal incidence (cell-averaged); ideal mirror, x 0.90 for a 90% mirror (T07)
++  set GasNsat 10.43
++  set GasLref 0.15
++  ## gas crossed at normal incidence through the k4geo cells (T12 part A): 16.9 cm barrel, 16.7 cm endcap
++  set GasThickness 0.169
++  ## light collection relative to the path scaling N_sat L / L_ref (photons leave the cell at oblique incidence)
++  set GasYieldScaleFormula {
++    (abs(eta) <= 0.9013) * (TMath::Max(0.0, (0.980987) + (-1.27425) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0637), 0.9627), 2) + (2.31081) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0637), 0.9627), 4) + (-1.27586) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0637), 0.9627), 6))) +
++    (abs(eta) > 0.9013 && abs(eta) <= 1.0298) * (0.4963) +
++    (abs(eta) > 1.0298) * (TMath::Max(0.0, (1.0131) + (-0.531886) * pow(TMath::Min(TMath::Max((1.0/sinh(abs(eta) + 1e-9)), 0.2373), 0.7765), 2) + (0.417578) * pow(TMath::Min(TMath::Max((1.0/sinh(abs(eta) + 1e-9)), 0.2373), 0.7765), 4)))
++  }
++
++  ## aerogel radiator: k4geo Aerogel_PFRICH (design value 1.03 not used by the full sim). n and dn/dE at the detected <E> = 3.0 eV,
++  ## sigma_E = rms of the detected aerogel spectrum (T12, 90 deg). The chromatic term (2.7 mrad at beta = 1) dominates.
++  set AerogelRefractiveIndex 1.0193
++  # set AerogelRefractiveIndex 1.03   ;# design value
++  set AerogelDnDe 7.9E-4
++  set AerogelSigmaE 0.655
++  ## per-photon resolution without the chromatic part [rad] (pixel 1.23 (+) emission); fits (mrad, chromatic included):
++  ##   s1_barrel: even polynomial in x, c = 8.352, 3.638 (chi2/ndf 1.08, x in [0.064, 0.963])
++  ##   s1_endcap: even polynomial in x, c = 8.406, 2.597 (chi2/ndf 3.59, x in [0.237, 0.777])
++  ##   sc_barrel: even polynomial in x, c = 1.584, 9.535, 9.948 (chi2/ndf 5.76, x in [0.064, 0.963])
++  ##   sc_endcap: even polynomial in x, c = 0.3133, 12.79 (chi2/ndf 3.20, x in [0.237, 0.777])
++  ##   Y_barrel: even polynomial in x, c = 0.9819, 0.7645, -1.315, 0.6602 (chi2/ndf 0.94, x in [0.064, 0.963])
++  ##   Y_endcap: even polynomial in x, c = 1.064, 0.2568, -0.6336 (chi2/ndf 1.56, x in [0.237, 0.777])
++  ##   E_barrel: even polynomial in x, c = 0.9354, -0.3339, 0.3892 (chi2/ndf 12.22, x in [0.064, 0.963])
++  ##   E_endcap: even polynomial in x, c = 0.9628, -0.121 (chi2/ndf 1.69, x in [0.237, 0.777])
++  set AerogelSigmaSingle 0.001082
++  set AerogelSigmaSingleFormula {
++    (abs(eta) <= 0.9013) * (0.001 * sqrt(TMath::Max(0.0, (8.35225) + (3.63775) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0637), 0.9627), 2) - (7.1824)))) +
++    (abs(eta) > 0.9013 && abs(eta) <= 1.0298) * (0.001545) +
++    (abs(eta) > 1.0298) * (0.001 * sqrt(TMath::Max(0.0, (8.40626) + (2.59701) * pow(TMath::Min(TMath::Max((1.0/sinh(abs(eta) + 1e-9)), 0.2373), 0.7765), 2) - (7.1824))))
++  }
++  set AerogelSigmaCorrFormula {
++    (abs(eta) <= 0.9013) * (0.001 * sqrt(TMath::Max(0.0, (1.58429) + (9.53458) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0637), 0.9627), 2) + (9.94849) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0637), 0.9627), 4) - (0)))) +
++    (abs(eta) > 0.9013 && abs(eta) <= 1.0298) * (0.003702) +
++    (abs(eta) > 1.0298) * (0.001 * sqrt(TMath::Max(0.0, (0.313326) + (12.7915) * pow(TMath::Min(TMath::Max((1.0/sinh(abs(eta) + 1e-9)), 0.2373), 0.7765), 2) - (0))))
++  }
++  set AerogelNsat 6.94
++  set AerogelLref 0.01
++  set AerogelThickness 0.0098
++  set AerogelYieldScaleFormula {
++    (abs(eta) <= 0.9013) * (TMath::Max(0.0, (0.98185) + (0.764474) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0637), 0.9627), 2) + (-1.31534) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0637), 0.9627), 4) + (0.660188) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0637), 0.9627), 6))) +
++    (abs(eta) > 0.9013 && abs(eta) <= 1.0298) * (0.7548) +
++    (abs(eta) > 1.0298) * (TMath::Max(0.0, (1.06379) + (0.25676) * pow(TMath::Min(TMath::Max((1.0/sinh(abs(eta) + 1e-9)), 0.2373), 0.7765), 2) + (-0.633595) * pow(TMath::Min(TMath::Max((1.0/sinh(abs(eta) + 1e-9)), 0.2373), 0.7765), 4)))
++  }
++
++  ## per-photon spread from the track curving across the radiator: sigma_bend = BendingCoefficient * 0.3 * B * L * sin(theta) / p,
++  ## weighted mean of the per-bin gas fits (T06b); the T06 reconstruction already corrects for the helix, so k < 1/sqrt(12)
++  set BendingCoefficient 0.155
++
++  ## a ring needs at least MinPe detected photons (as in the T06 reconstruction); the yield fluctuates per track (Poisson)
++  set MinPe 3.0
++  set SigmaTrack 0.0
++  set PoissonFluctuation true
++  set UseTrueMomentumForPID false
++
++  ## ring-finding efficiency (ring lost: cell edge, mirror gap; < 3 photons is handled by MinPe), cell-averaged
++  set GasEfficiencyFormula {
++    (abs(eta) <= 0.9013) * (TMath::Max(0.0, TMath::Min(1.0, (0.992905) + (-0.301298) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0637), 0.9627), 2) + (0.164372) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0637), 0.9627), 4)))) +
++    (abs(eta) > 0.9013 && abs(eta) <= 1.0298) * (0.123) +
++    (abs(eta) > 1.0298) * (TMath::Max(0.0, TMath::Min(1.0, (1.01939) + (-0.372212) * pow(TMath::Min(TMath::Max((1.0/sinh(abs(eta) + 1e-9)), 0.2373), 0.7765), 2))))
++  }
++  set AerogelEfficiencyFormula {
++    (abs(eta) <= 0.9013) * (TMath::Max(0.0, TMath::Min(1.0, (0.935369) + (-0.333916) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0637), 0.9627), 2) + (0.389179) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0637), 0.9627), 4)))) +
++    (abs(eta) > 0.9013 && abs(eta) <= 1.0298) * (0.1865) +
++    (abs(eta) > 1.0298) * (TMath::Max(0.0, TMath::Min(1.0, (0.962775) + (-0.121011) * pow(TMath::Min(TMath::Max((1.0/sinh(abs(eta) + 1e-9)), 0.2373), 0.7765), 2))))
++  }
++}
++
++##############
++# Track merger
++##############
++
++module Merger TrackMerger {
++# add InputArray InputArray
++  add InputArray ARCPID/tracks
++  set OutputArray tracks
++}
++
++
++######################
++# Looper Selection
++######################
++
++module Efficiency ForwardLooperTracks  {
++  set InputArray TrackMerger/tracks
++  set OutputArray tracks
++  set UseMomentumVector false
++
++  ## select looping tracks that end up in position |eta| > 3.142 (lost by calo)
++  set EfficiencyFormula {
++    (abs(eta) > 3.0 )                                 * (1.000) +
++    (abs(eta) <= 3.0 )                                * (0.000)
++  }
++
++}
++
++
++#############
++# Calorimeter
++#############
++module DualReadoutCalorimeter Calorimeter {
++    set ParticleInputArray ParticlePropagator/stableParticles
++    set TrackInputArray TrackMerger/tracks
++
++    set TowerOutputArray towers
++    set PhotonOutputArray photons
++
++    set EFlowTrackOutputArray eflowTracks
++    set EFlowPhotonOutputArray eflowPhotons
++    set EFlowNeutralHadronOutputArray eflowNeutralHadrons
++
++    set ECalMinSignificance 2.0
++    set HCalMinSignificance 2.5
++
++    set SmearLogNormal false
++
++    set SmearTowerCenter true
++    #set SmearTowerCenter false
++
++    ## GRAiNITA barrel photon angular resolution, CLUE clustering (ALFA Reco workshop 26 Oct 2026): a = 0.80, b = 0.55, c = 0.145 mrad; endcap assumed equal
++    set PhotonAngularSmearing true
++
++    set PhotonThetaResolutionFormula {
++      (abs(eta) <= 0.92)                   * sqrt(0.80^2/energy + 0.55^2/energy^2 + 0.145^2)*1E-3 +
++      (abs(eta) > 0.92 && abs(eta) <= 3.0) * sqrt(0.80^2/energy + 0.55^2/energy^2 + 0.145^2)*1E-3
++    }
++
++    set PhotonPhiResolutionFormula {
++      (abs(eta) <= 0.92)                   * sqrt(0.80^2/energy + 0.55^2/energy^2 + 0.145^2)*1E-3 +
++      (abs(eta) > 0.92 && abs(eta) <= 3.0) * sqrt(0.80^2/energy + 0.55^2/energy^2 + 0.145^2)*1E-3
++    }
++
++    set PhotonPointing true
++
++    set PointingThetaResolutionFormula { (abs(eta) <= 3.0) * sqrt(111.9^2/energy + 21.0^2)*1E-3 }
++    set PointingPhiResolutionFormula   { (abs(eta) <= 3.0) * sqrt(139.4^2/energy + 23.8^2)*1E-3 }
++
++    ## alternative optimistic pointing BDT-corrected
++    # set PointingThetaResolutionFormula { (abs(eta) <= 3.0) * sqrt(51.76^2/energy + 11.67^2)*1E-3 }
++    # set PointingPhiResolutionFormula   { (abs(eta) <= 3.0) * sqrt(75.76^2/energy + 73.66^2/energy^2 + 16.73^2)*1E-3 }
++    set pi [expr {acos(-1)}]
++
++    # Lists of the edges of each tower in eta and phi;
++    # each list starts with the lower edge of the first tower;
++    # the list ends with the higher edged of the last tower.
++    # Barrel:  deta=0.02 towers up to |eta| <= 0.88 ( up to 45°)
++    # Endcaps: deta=0.02 towers up to |eta| <= 3.0 (8.6° = 100 mrad)
++    # Cell size: about 6 cm x 6 cm
++
++    set EtaPhiRes 0.02
++    set EtaMax 3.0
++
++    set pi [expr {acos(-1)}]
++
++    set PhiBins [expr {int($pi/$EtaPhiRes) * 2}]
++
++    set nbins_eta [expr {$EtaMax/$EtaPhiRes} ]
++    set nbins_eta [expr {int($nbins_eta)} ]
++
++    for {set i -$nbins_eta} {$i <= $nbins_eta} {incr i} {
++      set eta [expr {$i * $EtaPhiRes}]
++      add EtaPhiBins $eta $PhiBins
++    }
++
++    # default energy fractions {abs(PDG code)} {Fecal Fhcal}
++    add EnergyFraction {0} {0.0 1.0}
++    # energy fractions for e, gamma and pi0
++    add EnergyFraction {11} {1.0 0.0}
++    add EnergyFraction {22} {1.0 0.0}
++    add EnergyFraction {111} {1.0 0.0}
++    # energy fractions for muon, neutrinos and neutralinos
++    add EnergyFraction {12} {0.0 0.0}
++    add EnergyFraction {13} {0.0 0.0}
++    add EnergyFraction {14} {0.0 0.0}
++    add EnergyFraction {16} {0.0 0.0}
++    add EnergyFraction {1000022} {0.0 0.0}
++    add EnergyFraction {1000023} {0.0 0.0}
++    add EnergyFraction {1000025} {0.0 0.0}
++    add EnergyFraction {1000035} {0.0 0.0}
++    add EnergyFraction {1000045} {0.0 0.0}
++    # energy fractions for K0short and Lambda
++    add EnergyFraction {310} {0.3 0.7}
++    add EnergyFraction {130} {0.3 0.7}
++    add EnergyFraction {3122} {0.3 0.7}
++
++
++    ## GRAiNITA ECAL: sigma_E/E = 1.7%/sqrt(E) (+) 1.1% at reconstruction level with CLUE (ALFA Reco workshop 26 Oct 2026).
++    ## Endcap assumed identical (no endcap design yet).
++    set ECalResolutionFormula {
++    (abs(eta) <= 0.92 )                     * sqrt(energy^2*0.011^2 + energy*0.017^2 + 0.002^2)+
++    (abs(eta) > 0.92 && abs(eta) <= 3.0)    * sqrt(energy^2*0.011^2 + energy*0.017^2 + 0.002^2)
++    }
++
++
++    ## HCAL: SiPM-on-tile scintillator in the instrumented yoke (HGCAL CE-H like).
++    ## PLACEHOLDER: 45%/sqrt(E) (+) 3% (CALICE AHCAL-like) until the standalone Geant4 study provides numbers.
++    set HCalResolutionFormula {
++    (abs(eta) <= 0.92 )                     * sqrt(energy^2*0.03^2 + energy*0.45^2 + 0.05^2)+
++    (abs(eta) > 0.92 && abs(eta) <= 3.0)    * sqrt(energy^2*0.03^2 + energy*0.45^2 + 0.05^2)
++    }
++}
++
++########################################
++#   Time Smearing Neutrals
++########################################
++
++module TimeSmearing TimeSmearingNeutrals {
++  set InputArray Calorimeter/eflowNeutralHadrons
++  set OutputArray eflowNeutralHadrons
++
++  # assume constant 30 ps resolution for now
++  set TimeResolution {
++                       (abs(eta) > 0.0 && abs(eta) <= 3.0)* 30E-12
++                     }
++}
++
++########################################
++#   Time Of Flight Measurement
++########################################
++
++module TimeOfFlight TimeOfFlightNeutralHadron {
++  set InputArray TimeSmearingNeutrals/eflowNeutralHadrons
++  set VertexInputArray TruthVertexFinder/vertices
++
++  set OutputArray eflowNeutralHadrons
++
++  # 0: assume vertex time tV from MC Truth (ideal case)
++  # 1: assume vertex time tV = 0
++  # 2: calculate vertex time as vertex TOF, assuming tPV=0
++
++  ## TBF (add option to take hard vertex time)
++  set VertexTimeMode 1
++}
++
++
++############################
++# Energy flow track merger
++############################
++
++module Merger EFlowTrackMerger {
++# add InputArray InputArray
++  add InputArray Calorimeter/eflowTracks
++  add InputArray ForwardLooperTracks/tracks
++  set OutputArray eflowTracks
++}
++
++
++
++####################
++# Energy flow merger
++####################
++
++module Merger EFlowMerger {
++# add InputArray InputArray
++  add InputArray EFlowTrackMerger/eflowTracks
++  add InputArray Calorimeter/eflowPhotons
++  add InputArray TimeOfFlightNeutralHadron/eflowNeutralHadrons
++  set OutputArray eflow
++}
++
++
++####################
++# Tower merger
++####################
++
++module Merger TowerMerger {
++# add InputArray InputArray
++  add InputArray Calorimeter/towers
++  add InputArray MuonFilter/muons
++  set OutputArray towers
++}
++
++
++###################
++# Photon efficiency
++###################
++
++module Efficiency PhotonEfficiency {
++  set InputArray Calorimeter/eflowPhotons
++  set OutputArray photons
++
++  # set EfficiencyFormula {efficiency formula as a function of eta and pt}
++  # efficiency formula for photons
++  set EfficiencyFormula {
++        (energy < 2.0)                                        * (0.000)+
++        (energy >= 2.0) * (abs(eta) <= 0.92)                  * (0.99) +
++        (energy >= 2.0) * (abs(eta) >0.88 && abs(eta) <= 3.0) * (0.99) +
++        (abs(eta) > 3.0)                                      * (0.000)
++  }
++}
++
++##################
++# Photon isolation
++##################
++
++module Isolation PhotonIsolation {
++  set CandidateInputArray PhotonEfficiency/photons
++  set IsolationInputArray EFlowMerger/eflow
++
++  set OutputArray photons
++
++  set DeltaRMax 0.5
++
++  set PTMin 0.5
++
++  set PTRatioMax 9999.
++}
++
++#################
++# Electron filter
++#################
++
++module PdgCodeFilter ElectronFilter {
++  set InputArray EFlowTrackMerger/eflowTracks
++  set OutputArray electrons
++  set Invert true
++  add PdgCode {11}
++  add PdgCode {-11}
++}
++
++#################
++# Muon filter
++#################
++
++module PdgCodeFilter MuonFilter {
++  set InputArray EFlowTrackMerger/eflowTracks
++  set OutputArray muons
++  set Invert true
++  add PdgCode {13}
++  add PdgCode {-13}
++}
++
++
++#####################
++# Electron efficiency
++#####################
++
++module Efficiency ElectronEfficiency {
++  set InputArray ElectronFilter/electrons
++  set OutputArray electrons
++
++  # set EfficiencyFormula {efficiency formula as a function of eta and pt}
++
++  # efficiency formula for electrons
++  set EfficiencyFormula {
++        (energy < 2.0)                                         * (0.000)+
++        (energy >= 2.0) * (abs(eta) <= 0.92)                   * (0.99) +
++        (energy >= 2.0) * (abs(eta) >0.88 && abs(eta) <= 3.0)  * (0.99) +
++        (abs(eta) > 3.0)                                       * (0.000)
++  }
++}
++
++####################
++# Electron isolation
++####################
++
++module Isolation ElectronIsolation {
++  set CandidateInputArray ElectronEfficiency/electrons
++  set IsolationInputArray EFlowMerger/eflow
++
++  set OutputArray electrons
++
++  set DeltaRMax 0.5
++
++  set PTMin 0.5
++
++  set PTRatioMax 9999
++}
++
++#################
++# Muon efficiency
++#################
++
++module Efficiency MuonEfficiency {
++  set InputArray MuonFilter/muons
++  set OutputArray muons
++
++  # set EfficiencyFormula {efficiency as a function of eta and pt}
++
++  # efficiency formula for muons
++  set EfficiencyFormula {
++        (energy < 2.0)                                         * (0.000)+
++        (energy >= 2.0) * (abs(eta) <= 0.92)                   * (0.99) +
++        (energy >= 2.0) * (abs(eta) >0.88 && abs(eta) <= 3.0)  * (0.99) +
++        (abs(eta) > 3.0)                                       * (0.000)
++  }
++}
++
++################
++# Muon isolation
++################
++
++module Isolation MuonIsolation {
++  set CandidateInputArray MuonEfficiency/muons
++  set IsolationInputArray EFlowMerger/eflow
++
++  set OutputArray muons
++
++  set DeltaRMax 0.5
++
++  set PTMin 0.5
++
++  set PTRatioMax 9999.
++}
++
++###################
++# Missing ET merger
++###################
++
++module Merger MissingET {
++# add InputArray InputArray
++  add InputArray EFlowMerger/eflow
++  set MomentumOutputArray momentum
++}
++
++
++#####################
++# Neutrino Filter
++#####################
++
++module PdgCodeFilter NeutrinoFilter {
++
++  set InputArray Delphes/stableParticles
++  set OutputArray filteredParticles
++
++  set PTMin 0.0
++
++  add PdgCode {12}
++  add PdgCode {14}
++  add PdgCode {16}
++  add PdgCode {-12}
++  add PdgCode {-14}
++  add PdgCode {-16}
++}
++
++###################################
++# Gen Jet finder Durham exclusive
++###################################
++
++module FastJetFinder GenJetFinderDurhamN2 {
++
++  set InputArray NeutrinoFilter/filteredParticles
++  set OutputArray jets
++
++  # algorithm: 11 ee-durham kT algorithm
++  # ref: https://indico.cern.ch/event/1173562/contributions/4929025/attachments/2470068/4237859/2022-06-FCC-jets.pdf
++  # to run exclusive njet mode set NJets to int
++  # to run exclusive dcut mode set DCut to float
++  # if DCut > 0 will run in dcut mode
++
++  set JetAlgorithm 11
++  set ExclusiveClustering true
++  set NJets 2
++  # set DCut 10.0
++}
++
++################################
++# Jet finder Durham exclusive
++################################
++
++module FastJetFinder FastJetFinderDurhamN2 {
++#  set InputArray Calorimeter/towers
++  set InputArray EFlowMerger/eflow
++
++  set OutputArray jets
++
++  # algorithm: 11 ee-durham kT algorithm
++  # ref: https://indico.cern.ch/event/1173562/contributions/4929025/attachments/2470068/4237859/2022-06-FCC-jets.pdf
++  # to run exclusive njet mode set NJets to int
++  # to run exclusive dcut mode set DCut to float
++  # if DCut > 0 will run in dcut mode
++
++  set JetAlgorithm 11
++  set ExclusiveClustering true
++  set NJets 2
++  # set DCut 10.0
++
++}
++
++
++
++
++#####################
++# MC truth jet finder
++#####################
++
++module FastJetFinder GenJetFinder {
++  set InputArray NeutrinoFilter/filteredParticles
++  set OutputArray jets
++
++  set JetAlgorithm 10
++  set ParameterR 1.5
++  set ParameterP -1.0
++  set JetPTMin 1.0
++
++}
++
++
++#########################
++# Gen Missing ET merger
++########################
++
++module Merger GenMissingET {
++# add InputArray InputArray
++  add InputArray NeutrinoFilter/filteredParticles
++  set MomentumOutputArray momentum
++}
++
++############
++# Jet finder
++############
++
++module FastJetFinder FastJetFinder {
++#  set InputArray Calorimeter/towers
++  set InputArray EFlowMerger/eflow
++
++  set OutputArray jets
++
++  # algorithm: 1 CDFJetClu, 2 MidPoint, 3 SIScone, 4 kt, 5 Cambridge/Aachen, 6 antikt
++  set JetAlgorithm 10
++  set ParameterR 1.5
++  set ParameterP -1.0
++  set JetPTMin 1.0
++
++
++}
++
++##################
++# Jet Energy Scale
++##################
++
++module EnergyScale JetEnergyScale {
++  set InputArray FastJetFinder/jets
++  set OutputArray jets
++
++  # scale formula for jets
++  set ScaleFormula {1.00}
++}
++
++########################
++# Jet Flavor Association
++########################
++
++module JetFlavorAssociation JetFlavorAssociation {
++
++  set PartonInputArray Delphes/partons
++  set ParticleInputArray Delphes/allParticles
++  set ParticleLHEFInputArray Delphes/allParticlesLHEF
++  set JetInputArray JetEnergyScale/jets
++
++  set DeltaR 0.5
++  set PartonPTMin 1.0
++  set PartonEtaMax 3.0
++}
++
++###########
++# b-tagging
++###########
++
++module BTagging BTagging {
++  set JetInputArray JetEnergyScale/jets
++
++  set BitNumber 0
++
++  # add EfficiencyFormula {abs(PDG code)} {efficiency formula as a function of eta and pt}
++
++  # default efficiency formula (misidentification rate)
++  add EfficiencyFormula {0} {0.005}
++
++  # efficiency formula for c-jets (misidentification rate)
++  add EfficiencyFormula {4} {0.01}
++
++  # efficiency formula for b-jets
++  add EfficiencyFormula {5} {0.85}
++}
++
++###########
++# c-tagging
++###########
++
++module BTagging CTagging {
++  set JetInputArray JetEnergyScale/jets
++
++  set BitNumber 1
++
++  # add EfficiencyFormula {abs(PDG code)} {efficiency formula as a function of eta and pt}
++
++  # default efficiency formula (misidentification rate)
++  add EfficiencyFormula {0} {0.01}
++
++  # efficiency formula for c-jets (misidentification rate)
++  add EfficiencyFormula {5} {0.05}
++
++  # efficiency formula for b-jets
++  add EfficiencyFormula {4} {0.80}
++}
++
++
++#############
++# tau-tagging
++#############
++
++module TauTagging TauTagging {
++  set ParticleInputArray Delphes/allParticles
++  set PartonInputArray Delphes/partons
++  set JetInputArray JetEnergyScale/jets
++
++  set DeltaR 0.5
++  set TauPTMin 1.0
++  set TauEtaMax 3.0
++
++  # default efficiency formula (misidentification rate)
++  add EfficiencyFormula {0} {0.01}
++  # efficiency formula for tau-jets
++  add EfficiencyFormula {15} {0.85}
++}
++
++
++
++##################
++# ROOT tree writer
++##################
++
++# Tracks, towers and eflow objects are not stored by default in the output.
++# If needed (for jet constituent or other studies), uncomment the relevant
++# "add Branch ..." lines.
++
++module TreeWriter TreeWriter {
++    # add Branch InputArray BranchName BranchClass
++
++    add Branch Delphes/allParticles Particle GenParticle
++    add Branch TruthVertexFinder/vertices GenVertex Vertex
++
++    add Branch EFlowTrackMerger/eflowTracks EFlowTrack Track
++    add Branch TrackMerger/tracks Track Track
++    add Branch Calorimeter/eflowPhotons EFlowPhoton Tower
++    add Branch TimeOfFlightNeutralHadron/eflowNeutralHadrons EFlowNeutralHadron Tower
++
++    add Branch EFlowMerger/eflow ParticleFlowCandidate ParticleFlowCandidate
++    add Branch Calorimeter/towers Tower Tower
++
++    add Branch ElectronEfficiency/electrons Electron Electron
++    add Branch MuonEfficiency/muons Muon Muon
++    add Branch PhotonEfficiency/photons Photon Photon
++
++    add Branch JetEnergyScale/jets Jet Jet
++    add Branch MissingET/momentum MissingET MissingET
++
++    add Branch GenJetFinder/jets GenJet Jet
++    add Branch GenMissingET/momentum GenMissingET MissingET
++
++    add Branch GenJetFinderDurhamN2/jets GenJetDurhamN2 Jet
++    add Branch FastJetFinderDurhamN2/jets JetDurhamN2 Jet
++
++    # add Info InfoName InfoValue
++    add Info Bz $::B
++}
+diff --git a/examples/ALFA/edm4hep_output_config_ALFA.tcl b/examples/ALFA/edm4hep_output_config_ALFA.tcl
+new file mode 100644
+index 0000000..af3bf0a
+--- /dev/null
++++ b/examples/ALFA/edm4hep_output_config_ALFA.tcl
+@@ -0,0 +1,12 @@
++# k4SimDelphes EDM4hep output for the ALFA cards (branch names of delphes_card_ALFA_*.tcl; the card has no ScalarHT)
++module EDM4HepOutput EDM4HepOutput {
++    add ReconstructedParticleCollections EFlowTrack EFlowPhoton EFlowNeutralHadron
++    add GenParticleCollections           Particle
++    add JetCollections                   Jet
++    add MuonCollections                  Muon
++    add ElectronCollections              Electron
++    add PhotonCollections                Photon
++    add MissingETCollections             MissingET
++    set RecoParticleCollectionName       ReconstructedParticles
++    set RecoMCParticleLinkCollectionName  RecoMCLink
++}
+diff --git a/examples/ALFA/produce_zh.sh b/examples/ALFA/produce_zh.sh
+new file mode 100755
+index 0000000..3947467
+--- /dev/null
++++ b/examples/ALFA/produce_zh.sh
+@@ -0,0 +1,26 @@
++#!/bin/bash
++# Produce EDM4hep files with the ALFA Delphes cards: e+e- -> ZH (Z -> nu nu, H -> xx) at 240 GeV.
++#
++# Usage: produce_zh.sh <card: Xe2bar|C4F10> <decay: bb|cc|ss|uu|dd|gg> <chunk> <nevents> <output.edm4hep.root>
++#
++# The Pythia seed depends only on (decay, chunk), so the two cards see identical generated events and differ by the
++# detector only. The Delphes RandomSeed is set to the same value.
++# Needs: a key4hep environment and this k4SimDelphes built against a Delphes with the ARCPID module (see README.md);
++#        DelphesPythia8_EDM4HEP of that build first in PATH, or K4SIMDELPHES_BIN pointing to it.
++set -eu
++CARD=$1; DECAY=$2; CHUNK=$3; NEV=$4; OUT=$5
++HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
++BIN=${K4SIMDELPHES_BIN:-$(command -v DelphesPythia8_EDM4HEP)}
++declare -A HDEC=([bb]="25:onIfMatch = 5 -5" [cc]="25:onIfMatch = 4 -4" [ss]="25:onIfMatch = 3 -3"
++                 [uu]="25:onIfMatch = 2 -2" [dd]="25:onIfMatch = 1 -1" [gg]="25:onIfMatch = 21 21")
++declare -A DID=([bb]=1 [cc]=2 [ss]=3 [uu]=4 [dd]=5 [gg]=6)
++[ -n "${HDEC[$DECAY]:-}" ] || { echo "unknown decay $DECAY"; exit 2; }
++[ -f "$HERE/cards/delphes_card_ALFA_$CARD.tcl" ] || { echo "unknown card $CARD"; exit 2; }
++SEED=$(( 100000 * ${DID[$DECAY]} + CHUNK + 1 ))
++WORK=$(mktemp -d)
++sed -e "s/@DECAY@/$DECAY/; s/@NEV@/$NEV/; s/@HDECAY@/${HDEC[$DECAY]}/; s/@SEED@/$SEED/" \
++    "$HERE/pythia/zh_Hxx_template.cmnd" > "$WORK/zh.cmnd"
++sed "s/^set RandomSeed .*/set RandomSeed $SEED/" "$HERE/cards/delphes_card_ALFA_$CARD.tcl" > "$WORK/card.tcl"
++case "$OUT" in /*) ;; *) OUT="$PWD/$OUT";; esac
++"$BIN" "$WORK/card.tcl" "$HERE/edm4hep_output_config_ALFA.tcl" "$WORK/zh.cmnd" "$OUT"
++rm -rf "$WORK"
+diff --git a/examples/ALFA/pythia/zh_Hxx_template.cmnd b/examples/ALFA/pythia/zh_Hxx_template.cmnd
+new file mode 100644
+index 0000000..a7cf57e
+--- /dev/null
++++ b/examples/ALFA/pythia/zh_Hxx_template.cmnd
+@@ -0,0 +1,16 @@
++! e+e- -> ZH at 240 GeV, Z -> nu nubar, H -> @DECAY@ (ALFA jet-flavour samples). Placeholders: @NEV@ @HDECAY@ @SEED@ @DECAY@
++Main:numberOfEvents = @NEV@
++Beams:idA = 11
++Beams:idB = -11
++Beams:eCM = 240.
++PDF:lepton = off
++HiggsSM:ffbar2HZ = on
++25:m0 = 125.0
++23:onMode = off
++23:onIfAny = 12 14 16
++25:onMode = off
++@HDECAY@
++Random:setSeed = on
++Random:seed = @SEED@
++Next:numberCount = 5000
++Next:numberShowEvent = 0
+-- 
+2.52.0
+

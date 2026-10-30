@@ -1,0 +1,76 @@
+From a25d4d7fe8d76e9cdf2181665ac9b6dc085c1df3 Mon Sep 17 00:00:00 2001
+From: hfatehi <trialoftheniku@gmail.com>
+Date: Fri, 30 Oct 2026 10:32:50 +0100
+Subject: [PATCH 6/8] examples/ALFA: cards synced with delphes alfa-arc
+ (outer-tracker material per station, T16)
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01KP5vqAGH2XiGXWtPhaonke
+---
+ .../ALFA/cards/delphes_card_ALFA_C4F10.tcl    | 19 ++++++++++---------
+ .../ALFA/cards/delphes_card_ALFA_Xe2bar.tcl   | 19 ++++++++++---------
+ 2 files changed, 20 insertions(+), 18 deletions(-)
+
+diff --git a/examples/ALFA/cards/delphes_card_ALFA_C4F10.tcl b/examples/ALFA/cards/delphes_card_ALFA_C4F10.tcl
+index ee338d1..9c87426 100644
+--- a/examples/ALFA/cards/delphes_card_ALFA_C4F10.tcl
++++ b/examples/ALFA/cards/delphes_card_ALFA_C4F10.tcl
+@@ -263,15 +263,16 @@ module TrackCovariance TrackSmearing {
+       1 VTX -0.163 0.163 0.023 5e-05 0.0937 2 0 1.5708 3e-06 3e-06 1
+       1 VTX -0.199 0.199 0.028 5e-05 0.0937 2 0 1.5708 3e-06 3e-06 1
+       1 VTX -0.234 0.234 0.033 5e-05 0.0937 2 0 1.5708 3e-06 3e-06 1
+-      # outer tracker barrel: 4 stations, each two MAPS planes on the faces of a 5 cm foam stave (k4geo OuterTrackerBarrel_o1_v00)
+-      1 OTB -1.345 1.345 0.767 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
+-      1 OTB -1.345 1.345 0.82 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
+-      1 OTB -1.345 1.345 0.893 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
+-      1 OTB -1.345 1.345 0.946 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
+-      1 OTB -1.345 1.345 1.587 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
+-      1 OTB -1.345 1.345 1.64 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
+-      1 OTB -1.345 1.345 1.714 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
+-      1 OTB -1.345 1.345 1.767 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
++      # outer tracker barrel: 4 stations, each two MAPS planes on the faces of a 5 cm foam stave (k4geo OuterTrackerBarrel_o1_v00);
++      # plane thickness per station from the k4geo material scan at 90 deg (T04: 0.46 / 0.39 / 0.40 / 0.52 % X0 per station)
++      1 OTB -1.345 1.345 0.767 0.0002155 0.0937 2 0 1.5708 3e-06 3e-06 1
++      1 OTB -1.345 1.345 0.82 0.0002155 0.0937 2 0 1.5708 3e-06 3e-06 1
++      1 OTB -1.345 1.345 0.893 0.0001827 0.0937 2 0 1.5708 3e-06 3e-06 1
++      1 OTB -1.345 1.345 0.946 0.0001827 0.0937 2 0 1.5708 3e-06 3e-06 1
++      1 OTB -1.345 1.345 1.587 0.0001874 0.0937 2 0 1.5708 3e-06 3e-06 1
++      1 OTB -1.345 1.345 1.64 0.0001874 0.0937 2 0 1.5708 3e-06 3e-06 1
++      1 OTB -1.345 1.345 1.714 0.0002436 0.0937 2 0 1.5708 3e-06 3e-06 1
++      1 OTB -1.345 1.345 1.767 0.0002436 0.0937 2 0 1.5708 3e-06 3e-06 1
+       # ARC barrel as passive material: 20 cm, 5.8% X0 at 90 deg (k4geo T04 material scan)
+       1 ARCB -2.2 2.2 2 0.2 3.45 0 0 0 0 0 0
+       # outer tracker endcaps: 4 double disks per side (ALFA Delphes card, Jul 2026; engineering design in progress)
+diff --git a/examples/ALFA/cards/delphes_card_ALFA_Xe2bar.tcl b/examples/ALFA/cards/delphes_card_ALFA_Xe2bar.tcl
+index a08963f..ee8e199 100644
+--- a/examples/ALFA/cards/delphes_card_ALFA_Xe2bar.tcl
++++ b/examples/ALFA/cards/delphes_card_ALFA_Xe2bar.tcl
+@@ -263,15 +263,16 @@ module TrackCovariance TrackSmearing {
+       1 VTX -0.163 0.163 0.023 5e-05 0.0937 2 0 1.5708 3e-06 3e-06 1
+       1 VTX -0.199 0.199 0.028 5e-05 0.0937 2 0 1.5708 3e-06 3e-06 1
+       1 VTX -0.234 0.234 0.033 5e-05 0.0937 2 0 1.5708 3e-06 3e-06 1
+-      # outer tracker barrel: 4 stations, each two MAPS planes on the faces of a 5 cm foam stave (k4geo OuterTrackerBarrel_o1_v00)
+-      1 OTB -1.345 1.345 0.767 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
+-      1 OTB -1.345 1.345 0.82 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
+-      1 OTB -1.345 1.345 0.893 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
+-      1 OTB -1.345 1.345 0.946 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
+-      1 OTB -1.345 1.345 1.587 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
+-      1 OTB -1.345 1.345 1.64 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
+-      1 OTB -1.345 1.345 1.714 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
+-      1 OTB -1.345 1.345 1.767 0.000187 0.0937 2 0 1.5708 3e-06 3e-06 1
++      # outer tracker barrel: 4 stations, each two MAPS planes on the faces of a 5 cm foam stave (k4geo OuterTrackerBarrel_o1_v00);
++      # plane thickness per station from the k4geo material scan at 90 deg (T04: 0.46 / 0.39 / 0.40 / 0.52 % X0 per station)
++      1 OTB -1.345 1.345 0.767 0.0002155 0.0937 2 0 1.5708 3e-06 3e-06 1
++      1 OTB -1.345 1.345 0.82 0.0002155 0.0937 2 0 1.5708 3e-06 3e-06 1
++      1 OTB -1.345 1.345 0.893 0.0001827 0.0937 2 0 1.5708 3e-06 3e-06 1
++      1 OTB -1.345 1.345 0.946 0.0001827 0.0937 2 0 1.5708 3e-06 3e-06 1
++      1 OTB -1.345 1.345 1.587 0.0001874 0.0937 2 0 1.5708 3e-06 3e-06 1
++      1 OTB -1.345 1.345 1.64 0.0001874 0.0937 2 0 1.5708 3e-06 3e-06 1
++      1 OTB -1.345 1.345 1.714 0.0002436 0.0937 2 0 1.5708 3e-06 3e-06 1
++      1 OTB -1.345 1.345 1.767 0.0002436 0.0937 2 0 1.5708 3e-06 3e-06 1
+       # ARC barrel as passive material: 20 cm, 5.8% X0 at 90 deg (k4geo T04 material scan)
+       1 ARCB -2.2 2.2 2 0.2 3.45 0 0 0 0 0 0
+       # outer tracker endcaps: 4 double disks per side (ALFA Delphes card, Jul 2026; engineering design in progress)
+-- 
+2.52.0
+

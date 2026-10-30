@@ -1,0 +1,157 @@
+From 6fb1e5c107d652bb993bfc2af3c5823583dc1c74 Mon Sep 17 00:00:00 2001
+From: hfatehi <trialoftheniku@gmail.com>
+Date: Fri, 30 Oct 2026 00:08:25 +0100
+Subject: [PATCH 06/12] cards v3.1: four-term gas yield in the barrel; gap bin
+ fitted on its own rings
+
+Gas barrel yield residuals 5-10% -> within errors (4-term even polynomial, still held inside
+the fitted range). Barrel-endcap gap: per-photon s1 and the correlated term from the gap rings
+(k fixed, equal weights), giving sigma_track ~2.3 mrad instead of the 1.7 mrad of the
+neighbouring-bin fallback.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01KP5vqAGH2XiGXWtPhaonke
+---
+ cards/delphes_card_ALFA_C4F10.tcl  | 16 ++++++++--------
+ cards/delphes_card_ALFA_Xe2bar.tcl | 16 ++++++++--------
+ 2 files changed, 16 insertions(+), 16 deletions(-)
+
+diff --git a/cards/delphes_card_ALFA_C4F10.tcl b/cards/delphes_card_ALFA_C4F10.tcl
+index 7bac2b9..c72f09a 100644
+--- a/cards/delphes_card_ALFA_C4F10.tcl
++++ b/cards/delphes_card_ALFA_C4F10.tcl
+@@ -332,20 +332,20 @@ module ARCPID ARCPID {
+   ##   s1_endcap: even polynomial in x, c = 8.703, 6.007 (chi2/ndf 0.97, x in [0.237, 0.777])
+   ##   sc_barrel: even polynomial in x, c = 0.5226, 2.588, -2.254 (chi2/ndf 0.27, x in [0.064, 0.963])
+   ##   sc_endcap: even polynomial in x, c = 0.2339, 1.453 (chi2/ndf 1.50, x in [0.237, 0.777])
+-  ##   Y_barrel: even polynomial in x, c = 0.9533, -0.7016, 0.5732 (chi2/ndf 17.63, x in [0.064, 0.963])
++  ##   Y_barrel: even polynomial in x, c = 0.981, -1.274, 2.311, -1.276 (chi2/ndf 7.72, x in [0.064, 0.963])
+   ##   Y_endcap: even polynomial in x, c = 1.013, -0.5319, 0.4176 (chi2/ndf 0.44, x in [0.237, 0.777])
+   ##   E_barrel: even polynomial in x, c = 0.9929, -0.3013, 0.1644 (chi2/ndf 2.89, x in [0.064, 0.963])
+   ##   E_endcap: even polynomial in x, c = 1.019, -0.3722 (chi2/ndf 2.44, x in [0.237, 0.777])
+   set GasSigmaSingle 0.003336
+   set GasSigmaSingleFormula {
+     (abs(eta) <= 0.9013) * (0.00111 * sqrt(TMath::Max(0.0, (9.68685) + (10.6206) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0637), 0.9627), 2) + (-9.8085) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0637), 0.9627), 4) - (0.6561)))) +
+-    (abs(eta) > 0.9013 && abs(eta) <= 1.0298) * (0.003717) +
++    (abs(eta) > 0.9013 && abs(eta) <= 1.0298) * (0.005502) +
+     (abs(eta) > 1.0298) * (0.00111 * sqrt(TMath::Max(0.0, (8.70341) + (6.00713) * pow(TMath::Min(TMath::Max((1.0/sinh(abs(eta) + 1e-9)), 0.2373), 0.7765), 2) - (0.6561))))
+   }
+   ## per-track correlated term [rad] (does not average down with N_pe): cell-position-dependent bias of the optics
+   set GasSigmaCorrFormula {
+     (abs(eta) <= 0.9013) * (0.001 * sqrt(TMath::Max(0.0, (0.522559) + (2.58791) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0637), 0.9627), 2) + (-2.2542) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0637), 0.9627), 4) - (0)))) +
+-    (abs(eta) > 0.9013 && abs(eta) <= 1.0298) * (0.0009897) +
++    (abs(eta) > 0.9013 && abs(eta) <= 1.0298) * (0.001513) +
+     (abs(eta) > 1.0298) * (0.001 * sqrt(TMath::Max(0.0, (0.233946) + (1.45306) * pow(TMath::Min(TMath::Max((1.0/sinh(abs(eta) + 1e-9)), 0.2373), 0.7765), 2) - (0))))
+   }
+   ## photons at beta = 1 for L = L_ref at normal incidence (cell-averaged); ideal mirror, x 0.90 for a 90% mirror (T07)
+@@ -355,7 +355,7 @@ module ARCPID ARCPID {
+   set GasThickness 0.169
+   ## light collection relative to the path scaling N_sat L / L_ref (photons leave the cell at oblique incidence)
+   set GasYieldScaleFormula {
+-    (abs(eta) <= 0.9013) * (TMath::Max(0.0, (0.953299) + (-0.701599) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0637), 0.9627), 2) + (0.573165) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0637), 0.9627), 4))) +
++    (abs(eta) <= 0.9013) * (TMath::Max(0.0, (0.980987) + (-1.27425) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0637), 0.9627), 2) + (2.31081) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0637), 0.9627), 4) + (-1.27586) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0637), 0.9627), 6))) +
+     (abs(eta) > 0.9013 && abs(eta) <= 1.0298) * (0.4963) +
+     (abs(eta) > 1.0298) * (TMath::Max(0.0, (1.0131) + (-0.531886) * pow(TMath::Min(TMath::Max((1.0/sinh(abs(eta) + 1e-9)), 0.2373), 0.7765), 2) + (0.417578) * pow(TMath::Min(TMath::Max((1.0/sinh(abs(eta) + 1e-9)), 0.2373), 0.7765), 4)))
+   }
+@@ -371,26 +371,26 @@ module ARCPID ARCPID {
+   ##   s1_endcap: even polynomial in x, c = 8.406, 2.597 (chi2/ndf 3.59, x in [0.237, 0.777])
+   ##   sc_barrel: even polynomial in x, c = 1.584, 9.535, 9.948 (chi2/ndf 5.76, x in [0.064, 0.963])
+   ##   sc_endcap: even polynomial in x, c = 0.3133, 12.79 (chi2/ndf 3.20, x in [0.237, 0.777])
+-  ##   Y_barrel: even polynomial in x, c = 0.9946, 0.472, -0.4178 (chi2/ndf 2.09, x in [0.064, 0.963])
++  ##   Y_barrel: even polynomial in x, c = 0.9819, 0.7645, -1.315, 0.6602 (chi2/ndf 0.94, x in [0.064, 0.963])
+   ##   Y_endcap: even polynomial in x, c = 1.064, 0.2568, -0.6336 (chi2/ndf 1.56, x in [0.237, 0.777])
+   ##   E_barrel: even polynomial in x, c = 0.9354, -0.3339, 0.3892 (chi2/ndf 12.22, x in [0.064, 0.963])
+   ##   E_endcap: even polynomial in x, c = 0.9628, -0.121 (chi2/ndf 1.69, x in [0.237, 0.777])
+   set AerogelSigmaSingle 0.001082
+   set AerogelSigmaSingleFormula {
+     (abs(eta) <= 0.9013) * (0.001 * sqrt(TMath::Max(0.0, (8.35225) + (3.63775) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0637), 0.9627), 2) - (7.1824)))) +
+-    (abs(eta) > 0.9013 && abs(eta) <= 1.0298) * (0.001578) +
++    (abs(eta) > 0.9013 && abs(eta) <= 1.0298) * (0.001545) +
+     (abs(eta) > 1.0298) * (0.001 * sqrt(TMath::Max(0.0, (8.40626) + (2.59701) * pow(TMath::Min(TMath::Max((1.0/sinh(abs(eta) + 1e-9)), 0.2373), 0.7765), 2) - (7.1824))))
+   }
+   set AerogelSigmaCorrFormula {
+     (abs(eta) <= 0.9013) * (0.001 * sqrt(TMath::Max(0.0, (1.58429) + (9.53458) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0637), 0.9627), 2) + (9.94849) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0637), 0.9627), 4) - (0)))) +
+-    (abs(eta) > 0.9013 && abs(eta) <= 1.0298) * (0.003506) +
++    (abs(eta) > 0.9013 && abs(eta) <= 1.0298) * (0.003702) +
+     (abs(eta) > 1.0298) * (0.001 * sqrt(TMath::Max(0.0, (0.313326) + (12.7915) * pow(TMath::Min(TMath::Max((1.0/sinh(abs(eta) + 1e-9)), 0.2373), 0.7765), 2) - (0))))
+   }
+   set AerogelNsat 6.94
+   set AerogelLref 0.01
+   set AerogelThickness 0.0098
+   set AerogelYieldScaleFormula {
+-    (abs(eta) <= 0.9013) * (TMath::Max(0.0, (0.994611) + (0.471954) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0637), 0.9627), 2) + (-0.41784) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0637), 0.9627), 4))) +
++    (abs(eta) <= 0.9013) * (TMath::Max(0.0, (0.98185) + (0.764474) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0637), 0.9627), 2) + (-1.31534) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0637), 0.9627), 4) + (0.660188) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0637), 0.9627), 6))) +
+     (abs(eta) > 0.9013 && abs(eta) <= 1.0298) * (0.7548) +
+     (abs(eta) > 1.0298) * (TMath::Max(0.0, (1.06379) + (0.25676) * pow(TMath::Min(TMath::Max((1.0/sinh(abs(eta) + 1e-9)), 0.2373), 0.7765), 2) + (-0.633595) * pow(TMath::Min(TMath::Max((1.0/sinh(abs(eta) + 1e-9)), 0.2373), 0.7765), 4)))
+   }
+diff --git a/cards/delphes_card_ALFA_Xe2bar.tcl b/cards/delphes_card_ALFA_Xe2bar.tcl
+index 3ab4c85..ebdcb6d 100644
+--- a/cards/delphes_card_ALFA_Xe2bar.tcl
++++ b/cards/delphes_card_ALFA_Xe2bar.tcl
+@@ -330,20 +330,20 @@ module ARCPID ARCPID {
+   ##   s1_endcap: even polynomial in x, c = 8.703, 6.007 (chi2/ndf 0.97, x in [0.237, 0.777])
+   ##   sc_barrel: even polynomial in x, c = 0.5226, 2.588, -2.254 (chi2/ndf 0.27, x in [0.064, 0.963])
+   ##   sc_endcap: even polynomial in x, c = 0.2339, 1.453 (chi2/ndf 1.50, x in [0.237, 0.777])
+-  ##   Y_barrel: even polynomial in x, c = 0.9533, -0.7016, 0.5732 (chi2/ndf 17.63, x in [0.064, 0.963])
++  ##   Y_barrel: even polynomial in x, c = 0.981, -1.274, 2.311, -1.276 (chi2/ndf 7.72, x in [0.064, 0.963])
+   ##   Y_endcap: even polynomial in x, c = 1.013, -0.5319, 0.4176 (chi2/ndf 0.44, x in [0.237, 0.777])
+   ##   E_barrel: even polynomial in x, c = 0.9929, -0.3013, 0.1644 (chi2/ndf 2.89, x in [0.064, 0.963])
+   ##   E_endcap: even polynomial in x, c = 1.019, -0.3722 (chi2/ndf 2.44, x in [0.237, 0.777])
+   set GasSigmaSingle 0.003005
+   set GasSigmaSingleFormula {
+     (abs(eta) <= 0.9013) * (0.001 * sqrt(TMath::Max(0.0, (9.68685) + (10.6206) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0637), 0.9627), 2) + (-9.8085) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0637), 0.9627), 4) - (0.6561)))) +
+-    (abs(eta) > 0.9013 && abs(eta) <= 1.0298) * (0.003348) +
++    (abs(eta) > 0.9013 && abs(eta) <= 1.0298) * (0.004956) +
+     (abs(eta) > 1.0298) * (0.001 * sqrt(TMath::Max(0.0, (8.70341) + (6.00713) * pow(TMath::Min(TMath::Max((1.0/sinh(abs(eta) + 1e-9)), 0.2373), 0.7765), 2) - (0.6561))))
+   }
+   ## per-track correlated term [rad] (does not average down with N_pe): cell-position-dependent bias of the optics
+   set GasSigmaCorrFormula {
+     (abs(eta) <= 0.9013) * (0.001 * sqrt(TMath::Max(0.0, (0.522559) + (2.58791) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0637), 0.9627), 2) + (-2.2542) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0637), 0.9627), 4) - (0)))) +
+-    (abs(eta) > 0.9013 && abs(eta) <= 1.0298) * (0.0009897) +
++    (abs(eta) > 0.9013 && abs(eta) <= 1.0298) * (0.001513) +
+     (abs(eta) > 1.0298) * (0.001 * sqrt(TMath::Max(0.0, (0.233946) + (1.45306) * pow(TMath::Min(TMath::Max((1.0/sinh(abs(eta) + 1e-9)), 0.2373), 0.7765), 2) - (0))))
+   }
+   ## photons at beta = 1 for L = L_ref at normal incidence (cell-averaged); ideal mirror, x 0.90 for a 90% mirror (T07)
+@@ -353,7 +353,7 @@ module ARCPID ARCPID {
+   set GasThickness 0.169
+   ## light collection relative to the path scaling N_sat L / L_ref (photons leave the cell at oblique incidence)
+   set GasYieldScaleFormula {
+-    (abs(eta) <= 0.9013) * (TMath::Max(0.0, (0.953299) + (-0.701599) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0637), 0.9627), 2) + (0.573165) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0637), 0.9627), 4))) +
++    (abs(eta) <= 0.9013) * (TMath::Max(0.0, (0.980987) + (-1.27425) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0637), 0.9627), 2) + (2.31081) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0637), 0.9627), 4) + (-1.27586) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0637), 0.9627), 6))) +
+     (abs(eta) > 0.9013 && abs(eta) <= 1.0298) * (0.4963) +
+     (abs(eta) > 1.0298) * (TMath::Max(0.0, (1.0131) + (-0.531886) * pow(TMath::Min(TMath::Max((1.0/sinh(abs(eta) + 1e-9)), 0.2373), 0.7765), 2) + (0.417578) * pow(TMath::Min(TMath::Max((1.0/sinh(abs(eta) + 1e-9)), 0.2373), 0.7765), 4)))
+   }
+@@ -369,26 +369,26 @@ module ARCPID ARCPID {
+   ##   s1_endcap: even polynomial in x, c = 8.406, 2.597 (chi2/ndf 3.59, x in [0.237, 0.777])
+   ##   sc_barrel: even polynomial in x, c = 1.584, 9.535, 9.948 (chi2/ndf 5.76, x in [0.064, 0.963])
+   ##   sc_endcap: even polynomial in x, c = 0.3133, 12.79 (chi2/ndf 3.20, x in [0.237, 0.777])
+-  ##   Y_barrel: even polynomial in x, c = 0.9946, 0.472, -0.4178 (chi2/ndf 2.09, x in [0.064, 0.963])
++  ##   Y_barrel: even polynomial in x, c = 0.9819, 0.7645, -1.315, 0.6602 (chi2/ndf 0.94, x in [0.064, 0.963])
+   ##   Y_endcap: even polynomial in x, c = 1.064, 0.2568, -0.6336 (chi2/ndf 1.56, x in [0.237, 0.777])
+   ##   E_barrel: even polynomial in x, c = 0.9354, -0.3339, 0.3892 (chi2/ndf 12.22, x in [0.064, 0.963])
+   ##   E_endcap: even polynomial in x, c = 0.9628, -0.121 (chi2/ndf 1.69, x in [0.237, 0.777])
+   set AerogelSigmaSingle 0.001082
+   set AerogelSigmaSingleFormula {
+     (abs(eta) <= 0.9013) * (0.001 * sqrt(TMath::Max(0.0, (8.35225) + (3.63775) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0637), 0.9627), 2) - (7.1824)))) +
+-    (abs(eta) > 0.9013 && abs(eta) <= 1.0298) * (0.001578) +
++    (abs(eta) > 0.9013 && abs(eta) <= 1.0298) * (0.001545) +
+     (abs(eta) > 1.0298) * (0.001 * sqrt(TMath::Max(0.0, (8.40626) + (2.59701) * pow(TMath::Min(TMath::Max((1.0/sinh(abs(eta) + 1e-9)), 0.2373), 0.7765), 2) - (7.1824))))
+   }
+   set AerogelSigmaCorrFormula {
+     (abs(eta) <= 0.9013) * (0.001 * sqrt(TMath::Max(0.0, (1.58429) + (9.53458) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0637), 0.9627), 2) + (9.94849) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0637), 0.9627), 4) - (0)))) +
+-    (abs(eta) > 0.9013 && abs(eta) <= 1.0298) * (0.003506) +
++    (abs(eta) > 0.9013 && abs(eta) <= 1.0298) * (0.003702) +
+     (abs(eta) > 1.0298) * (0.001 * sqrt(TMath::Max(0.0, (0.313326) + (12.7915) * pow(TMath::Min(TMath::Max((1.0/sinh(abs(eta) + 1e-9)), 0.2373), 0.7765), 2) - (0))))
+   }
+   set AerogelNsat 6.94
+   set AerogelLref 0.01
+   set AerogelThickness 0.0098
+   set AerogelYieldScaleFormula {
+-    (abs(eta) <= 0.9013) * (TMath::Max(0.0, (0.994611) + (0.471954) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0637), 0.9627), 2) + (-0.41784) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0637), 0.9627), 4))) +
++    (abs(eta) <= 0.9013) * (TMath::Max(0.0, (0.98185) + (0.764474) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0637), 0.9627), 2) + (-1.31534) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0637), 0.9627), 4) + (0.660188) * pow(TMath::Min(TMath::Max(sinh(abs(eta)), 0.0637), 0.9627), 6))) +
+     (abs(eta) > 0.9013 && abs(eta) <= 1.0298) * (0.7548) +
+     (abs(eta) > 1.0298) * (TMath::Max(0.0, (1.06379) + (0.25676) * pow(TMath::Min(TMath::Max((1.0/sinh(abs(eta) + 1e-9)), 0.2373), 0.7765), 2) + (-0.633595) * pow(TMath::Min(TMath::Max((1.0/sinh(abs(eta) + 1e-9)), 0.2373), 0.7765), 4)))
+   }
+-- 
+2.52.0
+

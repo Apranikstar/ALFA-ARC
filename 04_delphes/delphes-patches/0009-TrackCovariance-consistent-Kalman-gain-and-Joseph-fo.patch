@@ -1,0 +1,85 @@
+From e580260e0decd9f5c18233ac3ef8a341e6e58aed Mon Sep 17 00:00:00 2001
+From: hfatehi <trialoftheniku@gmail.com>
+Date: Fri, 30 Oct 2026 10:32:49 +0100
+Subject: [PATCH 09/12] TrackCovariance: consistent Kalman gain and Joseph-form
+ update in SolTrack::KalmanCovT
+
+The gain was built from the covariance before the multiple-scattering term of the layer (fCov) while the update
+subtracted from fCov + Qkm1, and the symmetrised P - P H^T S^-1 H P form loses positive-definiteness when a
+precise measurement (3 um MAPS) is the first one after the 10-unit starting covariance. With the ALFA tracker
+table 0.5-0.6% of tracks failed (negative diagonal / not positive definite) and fell back to KalmanCov, and ~5%
+of the accepted ones carried a sigma(pT) off by 10% up to x5. The gain now uses Pkkm1 and the update is
+(1-KH) P (1-KH)^T + K R K^T. ALFA: 0 failures in 10k pi+ (was 53) and in Delphes (was 576 per 100k); IDEA and
+the well-conditioned tracks are unchanged (median ratio 1.0000).
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01KP5vqAGH2XiGXWtPhaonke
+---
+ external/TrackCovariance/SolTrack.cc | 39 +++++++++-------------------
+ 1 file changed, 12 insertions(+), 27 deletions(-)
+
+diff --git a/external/TrackCovariance/SolTrack.cc b/external/TrackCovariance/SolTrack.cc
+index d89e140..f283616 100644
+--- a/external/TrackCovariance/SolTrack.cc
++++ b/external/TrackCovariance/SolTrack.cc
+@@ -1658,45 +1658,30 @@ void SolTrack::KalmanCovT(Bool_t Res, Bool_t MS, Double_t mass)
+ 					TMatrixDRow(Hk,nmi) = Rm;
+ 				}
+ 			}
+-			// Update Kalman gain
+-			//cout<<"Hk = "; Hk.Print();
+-			TMatrixDSym Ckm1(fCov);
++			// Update Kalman gain (T16 fix: the gain uses the predicted covariance Pkkm1 = fCov + Qkm1, the same matrix that is
++			// updated, and the update is in Joseph form, P = (1-KH) P (1-KH)^T + K R K^T, positive definite by construction)
++			TMatrixDSym Pkkm1 = fCov+Qkm1;
++			TMatrixDSym Ckm1(Pkkm1);
+ 			TMatrixDSym KG = Rk+Ckm1.Similarity(Hk);
+-			//cout<<"KG = "; KG.Print();
+ 			TMatrixDSym KGm1(nmeai);
+ 			if(nmeai == 2)KGm1 = RegInv(KG);
+ 			else{
+ 				Double_t KGval = KG(0,0);
+ 				KGm1(0,0) = 1./KGval;
+ 			}
+-			TMatrixDSym KkHk = KGm1.SimilarityT(Hk);
+-			//std::cout<<"KkHk = "; KkHk.Print();
+-			// Update covariance
+-			TMatrixDSym U(5);
+-			for(Int_t j=0; j<5; j++)U(j,j)=1.0;
+-			TMatrixDSym Pkkm1 = fCov+Qkm1;
+-			//
+-			// This is not computationally stable
+-			//TMatrixDSym PKP = KkHk.Similarity(Pkkm1);
+-			//fCov = Pkkm1-PKP;
+-			//std::cout<<"Pkkm1: "; Pkkm1.Print();
+-			//std::cout<<"PKP:   "; PKP.Print();
+-			//
+-			TMatrixD Arg1 = Pkkm1*(U-KkHk*Pkkm1);
+-			//std::cout<<"Arg1: "; Arg1.Print();
+-			TMatrixD Arg2 = (U-Pkkm1*KkHk)*Pkkm1;
+-			//std::cout<<"Arg2: "; Arg2.Print();
+-			TMatrixD Mean = (1./2.)*(Arg1+Arg2);
+-			//std::cout<<"Mean: "; Mean.Print();
++			TMatrixD HkT(TMatrixD::kTransposed, Hk);
++			TMatrixD Kk = TMatrixD(Pkkm1, TMatrixD::kMult, HkT) * KGm1;	// 5 x nmeai gain
++			TMatrixD U(5,5); U.UnitMatrix();
++			TMatrixD IKH = U - Kk*Hk;
++			TMatrixD IKHT(TMatrixD::kTransposed, IKH);
++			TMatrixD KkT(TMatrixD::kTransposed, Kk);
++			TMatrixD Pnew = IKH*TMatrixD(Pkkm1)*IKHT + Kk*TMatrixD(Rk)*KkT;
+ 			for(Int_t k1=0; k1<5; k1++){
+ 				for(Int_t k2=k1; k2<5; k2++){
+-					fCov(k1,k2) = (Mean(k1,k2)+Mean(k2,k1))/2.;
++					fCov(k1,k2) = (Pnew(k1,k2)+Pnew(k2,k1))/2.;
+ 					fCov(k2,k1) = fCov(k1,k2);
+ 				}
+ 			}
+-			//
+-			//
+-			//std::cout<<"fCov update:"; fCov.Print();
+ 		}else fCov += Qkm1;
+ 	}
+ 	//std::cout<<"Covariance matrix:"; fCov.Print();
+-- 
+2.52.0
+
