@@ -17,7 +17,7 @@ set RandomSeed 123
 #   HCAL    : SiPM-on-tile in the yoke; resolution is a PLACEHOLDER
 #   B field : 3 T
 #
-# ARC parameters (ARCPID module) replaced by the ray-tracing ARCFastSim module
+# ARC response: the ray-tracing ARCTracing module (replaces the calibrated ARCPID formulas)
 # study (Daniels et al., Jul 2026) and are to be replaced by the k4geo
 # full-sim calibration (tasks T05/T06 on the ALFA ARC task board).
 #####################################################################
@@ -54,8 +54,7 @@ set ExecutionPath {
 
   TrackMergerPre
   TrackSmearing
-  ARCPID
-
+  ARCTracing
   TrackMerger
   ForwardLooperTracks
   Calorimeter
@@ -304,8 +303,8 @@ module TrackCovariance TrackSmearing {
 # ARC: Array of RICH Cells, per-track PID
 #########################################
 
-module ARCFastSim ARCPID {
-  ## ARC fast simulation by ray tracing (ARCFastSim): photons generated along the helix in the aerogel and the gas from
+module ARCTracing ARCTracing {
+  ## ARC fast simulation by ray tracing (ARCTracing): photons generated along the helix in the aerogel and the gas from
   ## the k4geo optical tables, traced through the cell optics of the k4geo geometry (mirror, aerogel slab, SiPM array,
   ## pixels) and reconstructed as in the full-simulation analysis. Configuration B: aerogel n = 1.030, 80 mm SiPM arrays; gas Xe2bar.
   set InputArray TrackSmearing/tracks
@@ -363,7 +362,7 @@ module ARCFastSim ARCPID {
 
 module Merger TrackMerger {
 # add InputArray InputArray
-  add InputArray ARCPID/tracks
+  add InputArray ARCTracing/tracks
   set OutputArray tracks
 }
 

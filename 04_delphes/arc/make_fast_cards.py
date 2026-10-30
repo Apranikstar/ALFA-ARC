@@ -1,6 +1,6 @@
-"""ALFA Delphes cards with the ray-tracing ARCFastSim module in place of the calibrated ARCPID block.
+"""ALFA Delphes cards with the ray-tracing ARCTracing module in place of the calibrated ARCPID block.
 
-The module instance keeps the name ARCPID so the execution path and TrackMerger are unchanged. The base card of each
+The module instance is named ARCTracing too; the execution path and the TrackMerger input are renamed accordingly. The base card of each
 configuration supplies the tracker and the ARC material; only the ARC response block is replaced.
 Usage: python3 make_fast_cards.py <A|B|C> <Xe2bar|C4F10> <out.tcl> [--production]
    validation cards (default): TrueHypothesisAngle true (reco angle in the window around the true angle, as the
@@ -22,8 +22,8 @@ production = "--production" in sys.argv
 card = open(f"{BASE[cfg]}/delphes_card_ALFA_{gas}.tcl").read()
 m = re.search(r"^module ARCPID ARCPID \{.*?^\}\n", card, re.S | re.M)
 assert m, "ARCPID block not found"
-block = f"""module ARCFastSim ARCPID {{
-  ## ARC fast simulation by ray tracing (ARCFastSim): photons generated along the helix in the aerogel and the gas from
+block = f"""module ARCTracing ARCTracing {{
+  ## ARC fast simulation by ray tracing (ARCTracing): photons generated along the helix in the aerogel and the gas from
   ## the k4geo optical tables, traced through the cell optics of the k4geo geometry (mirror, aerogel slab, SiPM array,
   ## pixels) and reconstructed as in the full-simulation analysis. Configuration {cfg}: {NOTE[cfg]}; gas {gas}.
   set InputArray TrackSmearing/tracks
@@ -76,6 +76,8 @@ block = f"""module ARCFastSim ARCPID {{
 }}
 """
 card = card[:m.start()] + block + card[m.end():]
-card = card.replace("ARCPID module) are the first-pass values of the ARCPID", "ARCPID module) replaced by the ray-tracing ARCFastSim module", 1)
+card = card.replace("add InputArray ARCPID/tracks", "add InputArray ARCTracing/tracks")
+card = re.sub(r"^(\s+)ARCPID\s*$", r"\1ARCTracing", card, flags=re.M)
+card = card.replace("# ARC parameters (ARCPID module) are the first-pass values of the ARCPID", "# ARC response: the ray-tracing ARCTracing module (replaces the calibrated ARCPID formulas)", 1)
 open(out, "w").write(card)
 print("written", out)

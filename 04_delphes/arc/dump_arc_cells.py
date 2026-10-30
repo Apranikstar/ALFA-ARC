@@ -1,4 +1,4 @@
-"""Dump the ARC cell optics of a k4geo compact file for the Delphes ARCFastSim module (ray-tracing fast simulation).
+"""Dump the ARC cell optics of a k4geo compact file for the Delphes ARCTracing module (ray-tracing fast simulation).
 
 One line per placed cell, world and cell-frame quantities in mm / deg. The cell frame has its origin at the TGeo cell node
 origin, z along the cell axis (radial in the barrel, beam axis in the endcaps) and x along the mirror-centre offset, so that

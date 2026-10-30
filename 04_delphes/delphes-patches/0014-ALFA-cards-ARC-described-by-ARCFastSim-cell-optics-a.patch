@@ -1,7 +1,7 @@
 From e78960afddd333320bff7e22ce74e5e3109d03c7 Mon Sep 17 00:00:00 2001
 From: apranikstar <trialoftheniku@gmail.com>
 Date: Fri, 30 Oct 2026 21:28:57 +0100
-Subject: [PATCH 14/14] ALFA cards: ARC described by ARCFastSim; cell optics
+Subject: [PATCH 14/15] ALFA cards: ARC described by ARCFastSim; cell optics
  and optical tables
 
 The two ALFA cards (Xe 2 bar, C4F10) now use the ray-tracing ARCFastSim module

@@ -1,0 +1,582 @@
+From 77c878f3e8a4d3d86a9e667cdd6f5d60082aaa8d Mon Sep 17 00:00:00 2001
+From: apranikstar <trialoftheniku@gmail.com>
+Date: Fri, 30 Oct 2026 21:39:52 +0100
+Subject: [PATCH 15/15] Rename ARCFastSim to ARCTracing
+
+The module is named by what it does, ray tracing of the ARC optics; a Delphes
+module is a fast simulation by definition. The card instance name stays ARCPID.
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01KP5vqAGH2XiGXWtPhaonke
+---
+ Makefile                                 | 20 +++----
+ cards/delphes_card_ALFA_C4F10.tcl        | 11 ++--
+ cards/delphes_card_ALFA_Xe2bar.tcl       | 11 ++--
+ examples/ALFA/README.md                  |  4 +-
+ examples/ALFA/dump_arc_cells.py          |  2 +-
+ modules/{ARCFastSim.cc => ARCTracing.cc} | 74 ++++++++++++------------
+ modules/{ARCFastSim.h => ARCTracing.h}   | 14 ++---
+ modules/ModulesLinkDef.h                 |  4 +-
+ 8 files changed, 69 insertions(+), 71 deletions(-)
+ rename modules/{ARCFastSim.cc => ARCTracing.cc} (95%)
+ rename modules/{ARCFastSim.h => ARCTracing.h} (97%)
+
+diff --git a/Makefile b/Makefile
+index 12db768..1f9e3f1 100644
+--- a/Makefile
++++ b/Makefile
+@@ -400,7 +400,7 @@ tmp/modules/ModulesDict.$(SrcSuf): \
+ 	modules/TrackCovariance.h \
+ 	modules/ClusterCounting.h \
+ 	modules/ARCPID.h \
+-	modules/ARCFastSim.h \
++	modules/ARCTracing.h \
+ 	modules/ImpactParameterSmearing.h \
+ 	modules/TimeSmearing.h \
+ 	modules/TimeOfFlight.h \
+@@ -669,16 +669,16 @@ tmp/external/TrackCovariance/VertexFit.$(ObjSuf): \
+ 	external/TrackCovariance/VertexFit.$(SrcSuf)
+ tmp/external/TrackCovariance/VertexMore.$(ObjSuf): \
+ 	external/TrackCovariance/VertexMore.$(SrcSuf)
+-tmp/modules/ARCFastSim.$(ObjSuf): \
+-	modules/ARCFastSim.$(SrcSuf) \
+-	modules/ARCFastSim.h \
+-	classes/DelphesClasses.h \
+-	classes/DelphesFactory.h
+ tmp/modules/ARCPID.$(ObjSuf): \
+ 	modules/ARCPID.$(SrcSuf) \
+ 	modules/ARCPID.h \
+ 	classes/DelphesClasses.h \
+ 	classes/DelphesFormula.h
++tmp/modules/ARCTracing.$(ObjSuf): \
++	modules/ARCTracing.$(SrcSuf) \
++	modules/ARCTracing.h \
++	classes/DelphesClasses.h \
++	classes/DelphesFactory.h
+ tmp/modules/AngularSmearing.$(ObjSuf): \
+ 	modules/AngularSmearing.$(SrcSuf) \
+ 	modules/AngularSmearing.h \
+@@ -1256,8 +1256,8 @@ DELPHES_OBJ +=  \
+ 	tmp/external/TrackCovariance/TrkUtil.$(ObjSuf) \
+ 	tmp/external/TrackCovariance/VertexFit.$(ObjSuf) \
+ 	tmp/external/TrackCovariance/VertexMore.$(ObjSuf) \
+-	tmp/modules/ARCFastSim.$(ObjSuf) \
+ 	tmp/modules/ARCPID.$(ObjSuf) \
++	tmp/modules/ARCTracing.$(ObjSuf) \
+ 	tmp/modules/AngularSmearing.$(ObjSuf) \
+ 	tmp/modules/BTagging.$(ObjSuf) \
+ 	tmp/modules/BeamSpotFilter.$(ObjSuf) \
+@@ -1938,6 +1938,9 @@ modules/FastJetGridMedianEstimator.h: \
+ modules/LLPFilter.h: \
+ 	classes/DelphesModule.h
+ 	@touch $@
++modules/ARCTracing.h: \
++	classes/DelphesModule.h
++	@touch $@
+ external/fastjet/internal/MinHeap.hh: \
+ 	external/fastjet/internal/base.hh
+ 	@touch $@
+@@ -2245,9 +2248,6 @@ modules/TruthVertexFinder.h: \
+ classes/DelphesSTDHEPReader.h: \
+ 	classes/DelphesXDRReader.h
+ 	@touch $@
+-modules/ARCFastSim.h: \
+-	classes/DelphesModule.h
+-	@touch $@
+ external/fastjet/plugins/CDFCones/fastjet/CDFMidPointPlugin.hh: \
+ 	external/fastjet/JetDefinition.hh \
+ 	external/fastjet/internal/thread_safety_helpers.hh
+diff --git a/cards/delphes_card_ALFA_C4F10.tcl b/cards/delphes_card_ALFA_C4F10.tcl
+index b953f23..a7ceafa 100644
+--- a/cards/delphes_card_ALFA_C4F10.tcl
++++ b/cards/delphes_card_ALFA_C4F10.tcl
+@@ -17,7 +17,7 @@ set RandomSeed 123
+ #   HCAL    : SiPM-on-tile in the yoke; resolution is a PLACEHOLDER
+ #   B field : 3 T
+ #
+-# ARC parameters (ARCPID module) replaced by the ray-tracing ARCFastSim module
++# ARC response: the ray-tracing ARCTracing module (replaces the calibrated ARCPID formulas)
+ # study (Daniels et al., Jul 2026) and are to be replaced by the k4geo
+ # full-sim calibration (tasks T05/T06 on the ALFA ARC task board).
+ #####################################################################
+@@ -54,8 +54,7 @@ set ExecutionPath {
+ 
+   TrackMergerPre
+   TrackSmearing
+-  ARCPID
+-
++  ARCTracing
+   TrackMerger
+   ForwardLooperTracks
+   Calorimeter
+@@ -304,8 +303,8 @@ module TrackCovariance TrackSmearing {
+ # ARC: Array of RICH Cells, per-track PID
+ #########################################
+ 
+-module ARCFastSim ARCPID {
+-  ## ARC fast simulation by ray tracing (ARCFastSim): photons generated along the helix in the aerogel and the gas from
++module ARCTracing ARCTracing {
++  ## ARC fast simulation by ray tracing (ARCTracing): photons generated along the helix in the aerogel and the gas from
+   ## the k4geo optical tables, traced through the cell optics of the k4geo geometry (mirror, aerogel slab, SiPM array,
+   ## pixels) and reconstructed as in the full-simulation analysis. Configuration B: aerogel n = 1.030, 80 mm SiPM arrays; gas C4F10.
+   set InputArray TrackSmearing/tracks
+@@ -363,7 +362,7 @@ module ARCFastSim ARCPID {
+ 
+ module Merger TrackMerger {
+ # add InputArray InputArray
+-  add InputArray ARCPID/tracks
++  add InputArray ARCTracing/tracks
+   set OutputArray tracks
+ }
+ 
+diff --git a/cards/delphes_card_ALFA_Xe2bar.tcl b/cards/delphes_card_ALFA_Xe2bar.tcl
+index d308393..89ebd0d 100644
+--- a/cards/delphes_card_ALFA_Xe2bar.tcl
++++ b/cards/delphes_card_ALFA_Xe2bar.tcl
+@@ -17,7 +17,7 @@ set RandomSeed 123
+ #   HCAL    : SiPM-on-tile in the yoke; resolution is a PLACEHOLDER
+ #   B field : 3 T
+ #
+-# ARC parameters (ARCPID module) replaced by the ray-tracing ARCFastSim module
++# ARC response: the ray-tracing ARCTracing module (replaces the calibrated ARCPID formulas)
+ # study (Daniels et al., Jul 2026) and are to be replaced by the k4geo
+ # full-sim calibration (tasks T05/T06 on the ALFA ARC task board).
+ #####################################################################
+@@ -54,8 +54,7 @@ set ExecutionPath {
+ 
+   TrackMergerPre
+   TrackSmearing
+-  ARCPID
+-
++  ARCTracing
+   TrackMerger
+   ForwardLooperTracks
+   Calorimeter
+@@ -304,8 +303,8 @@ module TrackCovariance TrackSmearing {
+ # ARC: Array of RICH Cells, per-track PID
+ #########################################
+ 
+-module ARCFastSim ARCPID {
+-  ## ARC fast simulation by ray tracing (ARCFastSim): photons generated along the helix in the aerogel and the gas from
++module ARCTracing ARCTracing {
++  ## ARC fast simulation by ray tracing (ARCTracing): photons generated along the helix in the aerogel and the gas from
+   ## the k4geo optical tables, traced through the cell optics of the k4geo geometry (mirror, aerogel slab, SiPM array,
+   ## pixels) and reconstructed as in the full-simulation analysis. Configuration B: aerogel n = 1.030, 80 mm SiPM arrays; gas Xe2bar.
+   set InputArray TrackSmearing/tracks
+@@ -363,7 +362,7 @@ module ARCFastSim ARCPID {
+ 
+ module Merger TrackMerger {
+ # add InputArray InputArray
+-  add InputArray ARCPID/tracks
++  add InputArray ARCTracing/tracks
+   set OutputArray tracks
+ }
+ 
+diff --git a/examples/ALFA/README.md b/examples/ALFA/README.md
+index 699276f..db2da94 100644
+--- a/examples/ALFA/README.md
++++ b/examples/ALFA/README.md
+@@ -68,10 +68,10 @@ Per radiator: `n` (from the material at the detected-spectrum-weighted energy),
+ 
+ Single-radiator smearing only (no photon-level simulation, no background hits, no cell boundaries), straight-line region assignment, constant sigma_single. The HCAL resolution in the card is a placeholder. The tracker endcap layout follows the July 2026 ALFA card; the engineering design is in progress.
+ 
+-## ARC fast simulation (ARCFastSim): the ALFA cards since 30 October 2026
++## ARC fast simulation (ARCTracing): the ALFA cards since 30 October 2026
+ 
+ `cards/delphes_card_ALFA_Xe2bar.tcl` and `cards/delphes_card_ALFA_C4F10.tcl` describe the ARC with the ray-tracing module
+-`ARCFastSim` (modules/ARCFastSim.{h,cc}): photons generated along the track from the optical tables, traced through the cell
++`ARCTracing` (modules/ARCTracing.{h,cc}): photons generated along the track from the optical tables, traced through the cell
+ optics of the k4geo geometry (`cards/arc/cells_ALFA_o1_v01.txt`, dumped with `examples/ALFA/dump_arc_cells.py`;
+ `cards/arc/arc_optics_tables.txt`) and reconstructed as the full-simulation analysis. Validated against the Geant4 full
+ simulation on three configurations and both gases (23 of 24 three-sigma reaches within 5%, two configurations blind). Gas,
+diff --git a/examples/ALFA/dump_arc_cells.py b/examples/ALFA/dump_arc_cells.py
+index e591a12..378a2ff 100644
+--- a/examples/ALFA/dump_arc_cells.py
++++ b/examples/ALFA/dump_arc_cells.py
+@@ -1,4 +1,4 @@
+-"""Dump the ARC cell optics of a k4geo compact file for the Delphes ARCFastSim module (ray-tracing fast simulation).
++"""Dump the ARC cell optics of a k4geo compact file for the Delphes ARCTracing module (ray-tracing fast simulation).
+ 
+ One line per placed cell, world and cell-frame quantities in mm / deg. The cell frame has its origin at the TGeo cell node
+ origin, z along the cell axis (radial in the barrel, beam axis in the endcaps) and x along the mirror-centre offset, so that
+diff --git a/modules/ARCFastSim.cc b/modules/ARCTracing.cc
+similarity index 95%
+rename from modules/ARCFastSim.cc
+rename to modules/ARCTracing.cc
+index 5e5b534..46d32ae 100644
+--- a/modules/ARCFastSim.cc
++++ b/modules/ARCTracing.cc
+@@ -16,14 +16,14 @@
+  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+  */
+ 
+-/** \class ARCFastSim
++/** \class ARCTracing
+  *
+  *  Ray-tracing fast simulation of the ARC (see the header). Lengths in mm, energies in eV, angles in rad.
+  *
+  *  \author ALFA ARC study
+  */
+ 
+-#include "modules/ARCFastSim.h"
++#include "modules/ARCTracing.h"
+ 
+ #include "classes/DelphesClasses.h"
+ #include "classes/DelphesFactory.h"
+@@ -63,18 +63,18 @@ static inline void Cross(const double *a, const double *b, double *c)
+ 
+ //------------------------------------------------------------------------------
+ 
+-ARCFastSim::ARCFastSim() :
++ARCTracing::ARCTracing() :
+   fItInputArray(0), fInputArray(0), fOutputArray(0)
+ {
+ }
+ 
+-ARCFastSim::~ARCFastSim()
++ARCTracing::~ARCTracing()
+ {
+ }
+ 
+ //------------------------------------------------------------------------------
+ 
+-double ARCFastSim::Table::Eval(double x) const
++double ARCTracing::Table::Eval(double x) const
+ {
+   if(e.empty()) return 0.0;
+   if(x <= e.front()) return v.front();
+@@ -86,10 +86,10 @@ double ARCFastSim::Table::Eval(double x) const
+ 
+ //------------------------------------------------------------------------------
+ 
+-void ARCFastSim::ReadTables(const char *file)
++void ARCTracing::ReadTables(const char *file)
+ {
+   ifstream in(file);
+-  if(!in) throw runtime_error(string("ARCFastSim: cannot open the optics file ") + file);
++  if(!in) throw runtime_error(string("ARCTracing: cannot open the optics file ") + file);
+   string line;
+   while(getline(in, line))
+   {
+@@ -113,19 +113,19 @@ void ARCFastSim::ReadTables(const char *file)
+   }
+ }
+ 
+-const ARCFastSim::Table *ARCFastSim::FindTable(const string &name) const
++const ARCTracing::Table *ARCTracing::FindTable(const string &name) const
+ {
+   for(size_t i = 0; i < fTableNames.size(); ++i)
+     if(fTableNames[i] == name) return &fTables[i];
+-  throw runtime_error("ARCFastSim: optical table not found: " + name);
++  throw runtime_error("ARCTracing: optical table not found: " + name);
+ }
+ 
+ //------------------------------------------------------------------------------
+ 
+-void ARCFastSim::ReadCells(const char *file)
++void ARCTracing::ReadCells(const char *file)
+ {
+   ifstream in(file);
+-  if(!in) throw runtime_error(string("ARCFastSim: cannot open the cell file ") + file);
++  if(!in) throw runtime_error(string("ARCTracing: cannot open the cell file ") + file);
+   string line;
+   fBarrelRin = 1e9;
+   fEndcapZin = 1e9;
+@@ -152,7 +152,7 @@ void ARCFastSim::ReadCells(const char *file)
+     for(int i = 0; i < 3; ++i) ss >> aero[i];
+     for(int i = 0; i < 3; ++i) ss >> aeroN[i];
+     ss >> c.aeroHalf >> aeroRmax >> c.phi0 >> c.zmin >> c.zmax >> c.apothem;
+-    if(!ss) throw runtime_error("ARCFastSim: malformed cell line: " + line);
++    if(!ss) throw runtime_error("ARCTracing: malformed cell line: " + line);
+     c.aeroZ = aero[2];
+     // the frames are written with a finite number of digits: make them exactly orthonormal (the Cherenkov angle of the gas,
+     // 50 mrad, is sensitive to 1e-4 in a direction's norm through cot(theta_c))
+@@ -193,12 +193,12 @@ void ARCFastSim::ReadCells(const char *file)
+       fEndcapZin = min(fEndcapZin, fabs(c.O[2] + c.ez[2] * c.zmin));
+     fCells.push_back(c);
+   }
+-  if(fCells.empty()) throw runtime_error("ARCFastSim: no cells read");
++  if(fCells.empty()) throw runtime_error("ARCTracing: no cells read");
+ }
+ 
+ //------------------------------------------------------------------------------
+ 
+-void ARCFastSim::BuildGrid(Radiator &r, const Table &pde, const Table &refl)
++void ARCTracing::BuildGrid(Radiator &r, const Table &pde, const Table &refl)
+ {
+   double emin = max(r.n.e.front(), pde.e.front()), emax = min(r.n.e.back(), pde.e.back());
+   const int N = 160;
+@@ -215,7 +215,7 @@ void ARCFastSim::BuildGrid(Radiator &r, const Table &pde, const Table &refl)
+ }
+ 
+ // detected photons per mm of path (before the geometry), and the cumulative energy distribution of the detected photons
+-double ARCFastSim::Yield(const Radiator &r, double beta, vector<double> *cdf) const
++double ARCTracing::Yield(const Radiator &r, double beta, vector<double> *cdf) const
+ {
+   const size_t N = r.gridE.size();
+   double sum = 0.0;
+@@ -232,7 +232,7 @@ double ARCFastSim::Yield(const Radiator &r, double beta, vector<double> *cdf) co
+   return kFrankTamm * fYieldScale * sum;
+ }
+ 
+-double ARCFastSim::SampleEnergy(const Radiator &r, const vector<double> &cdf) const
++double ARCTracing::SampleEnergy(const Radiator &r, const vector<double> &cdf) const
+ {
+   double u = gRandom->Uniform();
+   size_t i = upper_bound(cdf.begin(), cdf.end(), u) - cdf.begin();
+@@ -244,7 +244,7 @@ double ARCFastSim::SampleEnergy(const Radiator &r, const vector<double> &cdf) co
+ 
+ //------------------------------------------------------------------------------
+ 
+-void ARCFastSim::Init()
++void ARCTracing::Init()
+ {
+   fBz = GetDouble("Bz", 3.0);
+   string cellFile = GetString("CellFile", "cells_ALFA_o1_v01.txt");
+@@ -320,13 +320,13 @@ void ARCFastSim::Init()
+   fItInputArray = fInputArray->MakeIterator();
+   fOutputArray = ExportArray(GetString("OutputArray", "tracks"));
+ 
+-  cout << "ARCFastSim: " << fCells.size() << " cells (barrel r_in " << fBarrelRin << " mm, endcap |z_in| " << fEndcapZin
++  cout << "ARCTracing: " << fCells.size() << " cells (barrel r_in " << fBarrelRin << " mm, endcap |z_in| " << fEndcapZin
+        << " mm), n_gas(" << fRecoEnergy << " eV) = " << fRecoIndex[kGas] << ", n_aerogel = " << fRecoIndex[kAerogel]
+        << ", gas yield at beta = 1: " << Yield(fRad[kGas], 1.0, 0) * 10 << " /cm, aerogel: " << Yield(fRad[kAerogel], 1.0, 0) * 10
+        << " /cm (before the optics)" << endl;
+ }
+ 
+-void ARCFastSim::Finish()
++void ARCTracing::Finish()
+ {
+   if(fItInputArray) delete fItInputArray;
+   if(fDebug)
+@@ -335,7 +335,7 @@ void ARCFastSim::Finish()
+     delete fDebug;
+     fDebug = 0;
+   }
+-  cout << "ARCFastSim: " << fNtracks << " tracks, " << fNcovered << " in the ARC; photons generated / detected: gas "
++  cout << "ARCTracing: " << fNtracks << " tracks, " << fNcovered << " in the ARC; photons generated / detected: gas "
+        << fNgen[kGas] << " / " << fNdet[kGas] << ", aerogel " << fNgen[kAerogel] << " / " << fNdet[kAerogel] << endl;
+   const char *why[18] = {"below threshold", "aerogel: absorbed (up)", "aerogel: stuck (up)", "aerogel: total reflection (up)",
+                          "no mirror intersection", "mirror behind", "gas absorption", "mirror outside the cell", "mirror reflectivity",
+@@ -343,7 +343,7 @@ void ARCFastSim::Finish()
+                          "slab: total reflection (out)", "sensor: not facing", "sensor plane behind", "outside the SiPM array", "gas below slab: emitted downwards"};
+   for(int rad = 0; rad < 2; ++rad)
+   {
+-    cout << "ARCFastSim: losses " << (rad == kGas ? "gas" : "aerogel") << ":";
++    cout << "ARCTracing: losses " << (rad == kGas ? "gas" : "aerogel") << ":";
+     for(int j = 0; j < 18; ++j)
+       if(fLoss[rad][j] > 0) cout << " [" << why[j] << " " << fLoss[rad][j] << "]";
+     cout << endl;
+@@ -352,7 +352,7 @@ void ARCFastSim::Finish()
+ 
+ //------------------------------------------------------------------------------
+ 
+-void ARCFastSim::Helix::Point(double sT, double *P, double *T) const
++void ARCTracing::Helix::Point(double sT, double *P, double *T) const
+ {
+   double c, s;
+   if(straight)
+@@ -376,7 +376,7 @@ void ARCFastSim::Helix::Point(double sT, double *P, double *T) const
+   T[2] = pz / p;
+ }
+ 
+-void ARCFastSim::ToLocal(const Cell &c, const double *P, double *L) const
++void ARCTracing::ToLocal(const Cell &c, const double *P, double *L) const
+ {
+   double d[3] = {P[0] - c.O[0], P[1] - c.O[1], P[2] - c.O[2]};
+   L[0] = Dot(d, c.ex);
+@@ -384,14 +384,14 @@ void ARCFastSim::ToLocal(const Cell &c, const double *P, double *L) const
+   L[2] = Dot(d, c.ez);
+ }
+ 
+-void ARCFastSim::VecToLocal(const Cell &c, const double *V, double *L) const
++void ARCTracing::VecToLocal(const Cell &c, const double *V, double *L) const
+ {
+   L[0] = Dot(V, c.ex);
+   L[1] = Dot(V, c.ey);
+   L[2] = Dot(V, c.ez);
+ }
+ 
+-double ARCFastSim::HexDist(double x, double y, double a, double phi0) const
++double ARCTracing::HexDist(double x, double y, double a, double phi0) const
+ {
+   double d = 0.0;
+   for(int k = 0; k < 3; ++k)
+@@ -402,7 +402,7 @@ double ARCFastSim::HexDist(double x, double y, double a, double phi0) const
+   return d;
+ }
+ 
+-bool ARCFastSim::InHex(double x, double y, double a, double phi0) const
++bool ARCTracing::InHex(double x, double y, double a, double phi0) const
+ {
+   return HexDist(x, y, a, phi0) <= 1.0;
+ }
+@@ -410,7 +410,7 @@ bool ARCFastSim::InHex(double x, double y, double a, double phi0) const
+ //------------------------------------------------------------------------------
+ 
+ // transverse path length at which the helix reaches the cylindrical radius r (Newton from the straight line)
+-double ARCFastSim::SolveRadius(const Helix &h, double r, bool &ok) const
++double ARCTracing::SolveRadius(const Helix &h, double r, bool &ok) const
+ {
+   ok = false;
+   double P[3], T[3];
+@@ -446,7 +446,7 @@ double ARCFastSim::SolveRadius(const Helix &h, double r, bool &ok) const
+ }
+ 
+ // transverse path length at which the helix reaches the cell-local plane z = zloc
+-double ARCFastSim::SolvePlane(const Helix &h, const Cell &c, double zloc, double sT0, bool &ok) const
++double ARCTracing::SolvePlane(const Helix &h, const Cell &c, double zloc, double sT0, bool &ok) const
+ {
+   ok = false;
+   double P[3], T[3], L[3], TL[3], s = sT0;
+@@ -469,7 +469,7 @@ double ARCFastSim::SolvePlane(const Helix &h, const Cell &c, double zloc, double
+ }
+ 
+ // transverse path length at which the helix meets the mirror sphere
+-double ARCFastSim::SolveSphere(const Helix &h, const Cell &c, double sT0, bool &ok) const
++double ARCTracing::SolveSphere(const Helix &h, const Cell &c, double sT0, bool &ok) const
+ {
+   ok = false;
+   double P[3], T[3], L[3], TL[3], s = sT0;
+@@ -495,7 +495,7 @@ double ARCFastSim::SolveSphere(const Helix &h, const Cell &c, double sT0, bool &
+ 
+ //------------------------------------------------------------------------------
+ 
+-const ARCFastSim::Cell *ARCFastSim::FindCell(const Helix &h, double &sTentry) const
++const ARCTracing::Cell *ARCTracing::FindCell(const Helix &h, double &sTentry) const
+ {
+   bool okB = false;
+   double sB = SolveRadius(h, fBarrelRin, okB);
+@@ -553,7 +553,7 @@ const ARCFastSim::Cell *ARCFastSim::FindCell(const Helix &h, double &sTentry) co
+ //------------------------------------------------------------------------------
+ 
+ // Snell at a plane perpendicular to the local z axis, from index n1 into n2; false on total internal reflection
+-bool ARCFastSim::RefractZ(double *k, double n1, double n2) const
++bool ARCTracing::RefractZ(double *k, double n1, double n2) const
+ {
+   double f = n1 / n2;
+   double sin2sq = f * f * (k[0] * k[0] + k[1] * k[1]);
+@@ -578,7 +578,7 @@ static bool RefractN(double *k, const double *nrm, double n1, double n2)
+ }
+ 
+ // Rayleigh scattering: new direction with the (1 + cos^2 theta) distribution about the old one
+-void ARCFastSim::RayleighScatter(double *k) const
++void ARCTracing::RayleighScatter(double *k) const
+ {
+   double ct;
+   do
+@@ -596,7 +596,7 @@ void ARCFastSim::RayleighScatter(double *k) const
+ 
+ // photon inside the aerogel slab (zBot < Q_z < zTop) with direction k: absorption and Rayleigh scattering until it leaves
+ // returns 0 absorbed, 1 left through the top, 2 left through the bottom, 3 stuck (too many scatterings)
+-int ARCFastSim::SlabTransport(double *Q, double *k, double zBot, double zTop, double lAbs, double lRay) const
++int ARCTracing::SlabTransport(double *Q, double *k, double zBot, double zTop, double lAbs, double lRay) const
+ {
+   for(int it = 0; it < 6; ++it)
+   {
+@@ -619,7 +619,7 @@ int ARCFastSim::SlabTransport(double *Q, double *k, double zBot, double zTop, do
+ }
+ 
+ // one Cherenkov photon from the local point P (track direction T) with energy E: traced to a pixel centre D on the sensor face
+-bool ARCFastSim::TracePhoton(const Cell &c, int rad, double beta, double *P, double *T, double energy, double *D)
++bool ARCTracing::TracePhoton(const Cell &c, int rad, double beta, double *P, double *T, double energy, double *D)
+ {
+   const Radiator &r = fRad[rad];
+   auto lost = [&](int why) { if(fCount) ++fLoss[rad][why]; return false; };
+@@ -723,7 +723,7 @@ bool ARCFastSim::TracePhoton(const Cell &c, int rad, double beta, double *P, dou
+ 
+ // inverse ray tracing of one pixel hit D: the mirror point M where the reflection law holds for the emission point E,
+ // then the photon direction at E; for the aerogel the direction is refracted back into the aerogel (nominal indices)
+-double ARCFastSim::RecoAngle(const Cell &c, const double *E, const double *T, const double *D, int rad) const
++double ARCTracing::RecoAngle(const Cell &c, const double *E, const double *T, const double *D, int rad) const
+ {
+   double e1[3] = {E[0] - c.C[0], E[1] - c.C[1], E[2] - c.C[2]};
+   Unit(e1);
+@@ -781,7 +781,7 @@ double ARCFastSim::RecoAngle(const Cell &c, const double *E, const double *T, co
+ }
+ 
+ // mean of the angles within the window around center, after two passes of 3-sigma (MAD) clipping around the median
+-void ARCFastSim::RobustMean(const vector<double> &th, double center, double window, double &mean, double &rms, int &n) const
++void ARCTracing::RobustMean(const vector<double> &th, double center, double window, double &mean, double &rms, int &n) const
+ {
+   vector<double> sel;
+   for(size_t i = 0; i < th.size(); ++i)
+@@ -818,7 +818,7 @@ void ARCFastSim::RobustMean(const vector<double> &th, double center, double wind
+ 
+ //------------------------------------------------------------------------------
+ 
+-void ARCFastSim::Process()
++void ARCTracing::Process()
+ {
+   Candidate *candidate, *mother, *particle;
+   const double masses[3] = {kMassPi, kMassK, kMassP};
+diff --git a/modules/ARCFastSim.h b/modules/ARCTracing.h
+similarity index 97%
+rename from modules/ARCFastSim.h
+rename to modules/ARCTracing.h
+index 793852f..0adad07 100644
+--- a/modules/ARCFastSim.h
++++ b/modules/ARCTracing.h
+@@ -16,10 +16,10 @@
+  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+  */
+ 
+-#ifndef ARCFastSim_h
+-#define ARCFastSim_h
++#ifndef ARCTracing_h
++#define ARCTracing_h
+ 
+-/** \class ARCFastSim
++/** \class ARCTracing
+  *
+  *  Ray-tracing fast simulation of the ARC (Array of RICH Cells) for the ALFA detector.
+  *
+@@ -53,11 +53,11 @@ class TIterator;
+ class TObjArray;
+ class Candidate;
+ 
+-class ARCFastSim: public DelphesModule
++class ARCTracing: public DelphesModule
+ {
+ public:
+-  ARCFastSim();
+-  ~ARCFastSim();
++  ARCTracing();
++  ~ARCTracing();
+ 
+   void Init();
+   void Process();
+@@ -159,7 +159,7 @@ private:
+   const TObjArray *fInputArray; //!
+   TObjArray *fOutputArray; //!
+ 
+-  ClassDef(ARCFastSim, 1)
++  ClassDef(ARCTracing, 1)
+ };
+ 
+ #endif
+diff --git a/modules/ModulesLinkDef.h b/modules/ModulesLinkDef.h
+index a5118f8..bbd4939 100644
+--- a/modules/ModulesLinkDef.h
++++ b/modules/ModulesLinkDef.h
+@@ -39,7 +39,7 @@
+ #include "modules/TrackCovariance.h"
+ #include "modules/ClusterCounting.h"
+ #include "modules/ARCPID.h"
+-#include "modules/ARCFastSim.h"
++#include "modules/ARCTracing.h"
+ #include "modules/ImpactParameterSmearing.h"
+ #include "modules/TimeSmearing.h"
+ #include "modules/TimeOfFlight.h"
+@@ -107,7 +107,7 @@
+ #pragma link C++ class TrackCovariance+;
+ #pragma link C++ class ClusterCounting+;
+ #pragma link C++ class ARCPID+;
+-#pragma link C++ class ARCFastSim+;
++#pragma link C++ class ARCTracing+;
+ #pragma link C++ class ImpactParameterSmearing+;
+ #pragma link C++ class TimeSmearing+;
+ #pragma link C++ class TimeOfFlight+;
+-- 
+2.52.0
+
