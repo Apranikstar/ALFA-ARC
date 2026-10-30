@@ -1,5 +1,5 @@
-From 46c9208d83449d13b75fe355bf8ad46bdcd9d66e Mon Sep 17 00:00:00 2001
-From: hfatehi <trialoftheniku@gmail.com>
+From 864af187db039337ab049af1efd309657909b922 Mon Sep 17 00:00:00 2001
+From: apranikstar <trialoftheniku@gmail.com>
 Date: Thu, 29 Oct 2026 20:34:27 +0100
 Subject: [PATCH 01/12] ALFA: ARCPID module, ALFA card, gun configs and
  validation script (bundle alfa_delphes_arcpid.tar.gz, v4)

@@ -1,5 +1,5 @@
-From a196d7eab295643cefee146a85a47b7fde809771 Mon Sep 17 00:00:00 2001
-From: hfatehi <trialoftheniku@gmail.com>
+From 7046e9c46b62b9519c26eaa01f3c4ef8d630eae6 Mon Sep 17 00:00:00 2001
+From: apranikstar <trialoftheniku@gmail.com>
 Date: Thu, 29 Oct 2026 20:39:45 +0100
 Subject: [PATCH 03/12] ALFA cards: Track branch after ARCPID; Xe 2 bar and
  C4F10 variants calibrated on k4geo full sim

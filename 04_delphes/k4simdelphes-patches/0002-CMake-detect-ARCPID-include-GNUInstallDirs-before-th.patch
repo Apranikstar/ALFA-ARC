@@ -1,5 +1,5 @@
-From 3f3dc6706a36e1de56e2d531fada595cfe821d39 Mon Sep 17 00:00:00 2001
-From: hfatehi <trialoftheniku@gmail.com>
+From 4de4398fdcf41c2c10a9e4e2560cd8356dce50ce Mon Sep 17 00:00:00 2001
+From: apranikstar <trialoftheniku@gmail.com>
 Date: Fri, 30 Oct 2026 02:58:27 +0100
 Subject: [PATCH 2/8] CMake: detect ARCPID; include GNUInstallDirs before the
  install RPATH is set

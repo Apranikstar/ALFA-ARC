@@ -1,5 +1,5 @@
-From df3c98dcc6738c6099ec4dcd0fad7015068ad817 Mon Sep 17 00:00:00 2001
-From: hfatehi <trialoftheniku@gmail.com>
+From 5290ac6cbe5f15537cc71af6336233e06f3f5e9f Mon Sep 17 00:00:00 2001
+From: apranikstar <trialoftheniku@gmail.com>
 Date: Fri, 30 Oct 2026 03:07:13 +0100
 Subject: [PATCH 4/8] examples/ALFA: cards in sync with delphes alfa-arc
  (template renamed; first comment line only)

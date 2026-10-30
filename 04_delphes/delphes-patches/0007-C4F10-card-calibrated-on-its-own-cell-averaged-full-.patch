@@ -1,5 +1,5 @@
-From 034f4bc17891bf01f30b5b07de17721280b56652 Mon Sep 17 00:00:00 2001
-From: hfatehi <trialoftheniku@gmail.com>
+From 2425104d9b2e445a99fe26aac92be789c16904a8 Mon Sep 17 00:00:00 2001
+From: apranikstar <trialoftheniku@gmail.com>
 Date: Fri, 30 Oct 2026 01:35:07 +0100
 Subject: [PATCH 07/12] C4F10 card calibrated on its own cell-averaged full sim
  (T06c); make_cards writes only the named cards

@@ -1,5 +1,5 @@
-From 79eda3138b13f39f0d1c57a81047b84125ba8d66 Mon Sep 17 00:00:00 2001
-From: hfatehi <trialoftheniku@gmail.com>
+From d4436397d38187385ed3834caad38f2deb98f78d Mon Sep 17 00:00:00 2001
+From: apranikstar <trialoftheniku@gmail.com>
 Date: Thu, 29 Oct 2026 17:50:11 +0100
 Subject: [PATCH 2/5] plugins: add ARCPhotonDetectionFilter for the ARC SiPM
  efficiency

@@ -1,5 +1,5 @@
-From 051699c0435e2243bdd6e19d04eed380d197f2b3 Mon Sep 17 00:00:00 2001
-From: hfatehi <trialoftheniku@gmail.com>
+From e3e9dd7b34903d33183ee0e37309291873261972 Mon Sep 17 00:00:00 2001
+From: apranikstar <trialoftheniku@gmail.com>
 Date: Thu, 29 Oct 2026 23:44:22 +0100
 Subject: [PATCH 05/12] ARCPID: per-radiator correlated term; cards calibration
  v3 (cell-averaged, PDE-sampled full sim)

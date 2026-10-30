@@ -1,5 +1,5 @@
-From 68197240bdf1dd480c0e5bd3349cd1b0022ac61f Mon Sep 17 00:00:00 2001
-From: hfatehi <trialoftheniku@gmail.com>
+From 1dfb365ea4e1c7ac2fd10978d0c998ad9a54c938 Mon Sep 17 00:00:00 2001
+From: apranikstar <trialoftheniku@gmail.com>
 Date: Fri, 30 Oct 2026 03:07:11 +0100
 Subject: [PATCH 08/12] ALFA: rename the base card to
  delphes_card_ALFA_template.tcl (not for production)

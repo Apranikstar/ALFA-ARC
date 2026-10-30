@@ -1,5 +1,5 @@
-From 97977ff5f70c80a1c3eeaec8369c22cc3f78815d Mon Sep 17 00:00:00 2001
-From: hfatehi <trialoftheniku@gmail.com>
+From 23ec1c6735d82540fc183ed15118b999ab7f2c2c Mon Sep 17 00:00:00 2001
+From: apranikstar <trialoftheniku@gmail.com>
 Date: Fri, 30 Oct 2026 02:58:28 +0100
 Subject: [PATCH 3/8] examples/ALFA: ALFA Delphes cards (Xe 2 bar, C4F10),
  EDM4hep output config, ZH production

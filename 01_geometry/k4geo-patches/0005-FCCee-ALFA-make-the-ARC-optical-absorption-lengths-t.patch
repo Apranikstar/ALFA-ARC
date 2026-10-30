@@ -1,5 +1,5 @@
-From d052fde44e2654d9cd9432830c8919bb8bd8d486 Mon Sep 17 00:00:00 2001
-From: hfatehi <trialoftheniku@gmail.com>
+From b833d4fbf3a00937a9b32d8808fc85d54d362c6e Mon Sep 17 00:00:00 2001
+From: apranikstar <trialoftheniku@gmail.com>
 Date: Thu, 29 Oct 2026 18:21:16 +0100
 Subject: [PATCH 5/5] FCCee/ALFA: make the ARC optical absorption lengths take
  effect in ALFA_o1_v01

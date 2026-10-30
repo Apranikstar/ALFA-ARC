@@ -1,5 +1,5 @@
-From e580260e0decd9f5c18233ac3ef8a341e6e58aed Mon Sep 17 00:00:00 2001
-From: hfatehi <trialoftheniku@gmail.com>
+From ba3789a4838ab78255d099855de02d94610c5d71 Mon Sep 17 00:00:00 2001
+From: apranikstar <trialoftheniku@gmail.com>
 Date: Fri, 30 Oct 2026 10:32:49 +0100
 Subject: [PATCH 09/12] TrackCovariance: consistent Kalman gain and Joseph-form
  update in SolTrack::KalmanCovT

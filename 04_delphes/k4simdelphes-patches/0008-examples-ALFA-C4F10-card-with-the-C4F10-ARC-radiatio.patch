@@ -1,5 +1,5 @@
-From d922b2b59bdd0cad3cc406787c24a1398d44bcd2 Mon Sep 17 00:00:00 2001
-From: hfatehi <trialoftheniku@gmail.com>
+From bad6ea2628af59c3117349cc384b859793f52c51 Mon Sep 17 00:00:00 2001
+From: apranikstar <trialoftheniku@gmail.com>
 Date: Fri, 30 Oct 2026 12:14:54 +0100
 Subject: [PATCH 8/8] examples/ALFA: C4F10 card with the C4F10 ARC radiation
  length (delphes alfa-arc)

@@ -1,5 +1,5 @@
-From 7cb1f0d8629a99c48eb827b762a6299965e84f7e Mon Sep 17 00:00:00 2001
-From: hfatehi <trialoftheniku@gmail.com>
+From 5f1cd313766e9e1282285201c9800ca7e7831288 Mon Sep 17 00:00:00 2001
+From: apranikstar <trialoftheniku@gmail.com>
 Date: Fri, 30 Oct 2026 03:07:27 +0100
 Subject: [PATCH 5/8] examples/ALFA README: do not hard-code the number of
  Delphes commits

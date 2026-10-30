@@ -1,5 +1,5 @@
-From 101691ff5cd89766d2920c8911dd7d1976e69a50 Mon Sep 17 00:00:00 2001
-From: hfatehi <trialoftheniku@gmail.com>
+From dd28944467d05689ff6d339237d4b6264df97ca9 Mon Sep 17 00:00:00 2001
+From: apranikstar <trialoftheniku@gmail.com>
 Date: Thu, 29 Oct 2026 21:36:41 +0100
 Subject: [PATCH 04/12] ARCPID: optional theta/p-dependent yield scale and
  single-photon resolution; cards recalibrated (v2)
