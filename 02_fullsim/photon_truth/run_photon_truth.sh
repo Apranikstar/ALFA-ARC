@@ -7,7 +7,7 @@ set -u
 P=$1; N=$2; SEED=$3; CH=$4
 TAG=pip_p${P}_c${CH}
 K=/afs/cern.ch/work/h/hfatehi/alfa/k4geo
-X=/afs/cern.ch/work/h/hfatehi/alfa/condor/T15/t15_extract.py
+X=/afs/cern.ch/work/h/hfatehi/alfa/ALFA-ARC/02_fullsim/extract_arc_photons_truth.py
 OUT=root://eosuser.cern.ch//eos/user/h/hfatehi/alfa/work/T15/npz
 HERE=$(pwd)
 echo "host $(hostname) dir $HERE tag $TAG"

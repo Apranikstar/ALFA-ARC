@@ -1,0 +1,13 @@
+# campaign_v3 (aerogel n = 1.030) cell-averaged full sim: Xe 2 bar and C4F10, pi/K/p at 10 momenta, theta 12-90 deg; 2 x 444 jobs
+executable            = /afs/cern.ch/work/h/hfatehi/alfa/ALFA-ARC/02_fullsim/run_fullsim.sh
+arguments             = $(gas) $(particle) $(p) $(nev) $(seed) $(chunk)
+output                = /afs/cern.ch/work/h/hfatehi/alfa/ALFA-ARC/02_fullsim/logs/$(gas)_$(ClusterId).$(ProcId).out
+error                 = /afs/cern.ch/work/h/hfatehi/alfa/ALFA-ARC/02_fullsim/logs/$(gas)_$(ClusterId).$(ProcId).err
+log                   = /afs/cern.ch/work/h/hfatehi/alfa/ALFA-ARC/02_fullsim/logs/fullsim.log
+request_cpus          = 1
+request_memory        = 3500MB
++JobFlavour           = "longlunch"
++AccountingGroup      = "group_u_FCC.local_gen"
+should_transfer_files = YES
+max_retries           = 2
+queue gas, particle, p, nev, seed, chunk from /afs/cern.ch/work/h/hfatehi/alfa/ALFA-ARC/02_fullsim/grid.txt
